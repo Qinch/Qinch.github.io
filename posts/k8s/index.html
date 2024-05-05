@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-cn">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-  <title>k8s in action - Just For Fun</title>
-  <meta property="og:title" content="k8s in action - Just For Fun" />
-  <meta name="twitter:title" content="k8s in action - Just For Fun" />
+  <title>kubernetes快速入门 - Just For Fun</title>
+  <meta property="og:title" content="kubernetes快速入门 - Just For Fun" />
+  <meta name="twitter:title" content="kubernetes快速入门 - Just For Fun" />
   <meta name="description" content="Sample article showcasing basic Markdown syntax and formatting for HTML elements.">
   <meta property="og:description" content="Sample article showcasing basic Markdown syntax and formatting for HTML elements.">
   <meta name="twitter:description" content="Sample article showcasing basic Markdown syntax and formatting for HTML elements.">
@@ -44,32 +44,15 @@
     <article class="article">
       
       
-      <h1 class="article-title">k8s in action</h1>
+      <h1 class="article-title">kubernetes快速入门</h1>
       
       <hr class="article-title-bottom">
       <ul class="article-meta">
-        <li class="article-meta-date"><time>October 1, 2021</time></li>
+        <li class="article-meta-date"><time>Oct 1, 2021</time></li>
         <li class="article-meta-categories">
         </li>
       </ul>
       
-<aside class="toc">
-  <nav id="TableOfContents">
-  <ul>
-    <li>
-      <ul>
-        <li><a href="#1-简介">1 简介</a></li>
-        <li><a href="#2-创建一个docker镜像">2, 创建一个docker镜像</a></li>
-        <li><a href="#2-pods">2 Pods</a></li>
-        <li><a href="#3-lables">3 Lables</a></li>
-        <li><a href="#4-replicaset">4 ReplicaSet</a></li>
-        <li><a href="#5-services">5 Services</a></li>
-        <li><a href="#6-deployment">6 Deployment</a></li>
-      </ul>
-    </li>
-  </ul>
-</nav>
-</aside>
       <h3 id="1-简介">1 简介</h3>
 <h4 id="11-虚拟机和容器的区别">1.1, 虚拟机和容器的区别</h4>
 <p>每个虚拟机运行在自己的Linux内核上(即下图中Guest OS， 每个VM可以安装不同版本的linux系统)，而容器都是调用同一个宿主机内核(如果一个容器化的应用需要一个特定的内核版本，那么它可能不能再每台机器上工作,也不能将一个x86架构编译的应用容器化之后，又期望他在arm架构的机器上运行)。</p>
