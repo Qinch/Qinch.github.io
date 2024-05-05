@@ -2,24 +2,24 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Apue on Just For Fun</title>
-    <link>http://localhost:1313/categories/apue/</link>
+    <link>https://qinch.github.io/categories/apue/</link>
     <description>Recent content in Apue on Just For Fun</description>
     <generator>Hugo</generator>
     <language>en</language>
     <lastBuildDate>Mon, 02 Oct 2017 00:00:00 +0000</lastBuildDate>
-    <atom:link href="http://localhost:1313/categories/apue/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://qinch.github.io/categories/apue/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>APUE中文第三版勘误</title>
-      <link>http://localhost:1313/posts/apue-erros/</link>
+      <link>https://qinch.github.io/posts/apue-erros/</link>
       <pubDate>Mon, 02 Oct 2017 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/posts/apue-erros/</guid>
+      <guid>https://qinch.github.io/posts/apue-erros/</guid>
       <description>&lt;p&gt;本博客根据自己对APUE中文第三版的阅读理解，列出其中自己认为翻译错误或者翻译有歧义的部分。&lt;/p&gt;</description>
     </item>
     <item>
       <title>Linux内存流</title>
-      <link>http://localhost:1313/posts/linux-io/</link>
+      <link>https://qinch.github.io/posts/linux-io/</link>
       <pubDate>Wed, 23 Dec 2015 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/posts/linux-io/</guid>
+      <guid>https://qinch.github.io/posts/linux-io/</guid>
       <description>&lt;h4 id=&#34;1-内存流&#34;&gt;1, 内存流&lt;/h4&gt;&#xA;&lt;p&gt;As we’ve seen, the standard I/O library buffers data in memory, so operations such as character-at-a-time I/O and line-at-a-time I/O are more efficient. We’ve also seen that we can provide our own buffer for the library to use by calling setbuf or setvbuf. In Version 4, the Single UNIX Specification added support for memory streams. These are standard I/O streams for which there are no underlying files, although they are still accessed with FILE pointers. All I/O is done by transferring bytes to and from buffers in main memory.&lt;/p&gt;</description>
     </item>
   </channel>

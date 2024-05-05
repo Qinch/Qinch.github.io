@@ -484,9 +484,6 @@ blockquote blockquote blockquote blockquote {
   -webkit-flex-grow: 0;
   flex-grow: 0;
 }
-.archives .archives-item > a:visited {
-  color: #a8a8a8;
-}
 .archives .archives-item time {
   -webkit-flex-grow: 1;
   flex-grow: 1;
