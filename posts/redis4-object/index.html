@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_object源码剖析 category: redis date: 2017-12-3 tags: [redis4.0,object,sourcecode] toc: false comments: false 1.redisObject介绍 Redis使用对象来表示数据库中的key和value,每次在redis中创建一个新的键值对时，至少需要创建两个对象对象:键对象和值对象。 Redis中的每个对象都由一个redisObject结构体表示。 typedef struct redisObject { //对象的类型 unsigned type:4; //对象采用的编码方式 unsigned encoding:4; //对象最后一次被命令程序访问的时间 unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or * LFU data (least significant 8 bits frequency * and most significant 16 bits decreas time). */ //对象引用计数 int refcount; //指向底层数据结构的指针 void *ptr; } robj; redisObject结构体中type表示对象的类型，type的取值如下： /* A redis object, that is a type able to hold a string / list / set */ /* The actual Redis Object */ #define OBJ_STRING 0 #define OBJ_LIST 1 #define OBJ_SET 2 #define OBJ_ZSET 3 #define OBJ_HASH 4 redisObject结构体中encoding表示type类型的对象采用哪种数据结构作为底层实现，encoding的取值如下: /* Objects encoding.">
+  <meta property="og:description" content="title: redis4.0_object源码剖析 category: redis date: 2017-12-3 tags: [redis4.0,object,sourcecode] toc: false comments: false 1.redisObject介绍 Redis使用对象来表示数据库中的key和value,每次在redis中创建一个新的键值对时，至少需要创建两个对象对象:键对象和值对象。 Redis中的每个对象都由一个redisObject结构体表示。 typedef struct redisObject { //对象的类型 unsigned type:4; //对象采用的编码方式 unsigned encoding:4; //对象最后一次被命令程序访问的时间 unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or * LFU data (least significant 8 bits frequency * and most significant 16 bits decreas time). */ //对象引用计数 int refcount; //指向底层数据结构的指针 void *ptr; } robj; redisObject结构体中type表示对象的类型，type的取值如下： /* A redis object, that is a type able to hold a string / list / set */ /* The actual Redis Object */ #define OBJ_STRING 0 #define OBJ_LIST 1 #define OBJ_SET 2 #define OBJ_ZSET 3 #define OBJ_HASH 4 redisObject结构体中encoding表示type类型的对象采用哪种数据结构作为底层实现，encoding的取值如下: /* Objects encoding.">
+  <meta name="twitter:description" content="title: redis4.0_object源码剖析 category: redis date: 2017-12-3 tags: [redis4.0,object,sourcecode] toc: false comments: false 1.redisObject介绍 Redis使用对象来表示数据库中的key和value,每次在redis中创建一个新的键值对时，至少需要创建两个对象对象:键对象 …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-object/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+      <h2 id="comments-false">title: redis4.0_object源码剖析
+category: redis
+date: 2017-12-3
+tags: [redis4.0,object,sourcecode]
+toc: false
+comments: false</h2>
+<h4 id="1redisobject介绍">1.redisObject介绍</h4>
+<ul>
+<li>Redis使用对象来表示数据库中的key和value,每次在redis中创建一个新的键值对时，至少需要创建两个对象对象:键对象和值对象。</li>
+<li>Redis中的每个对象都由一个redisObject结构体表示。</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>typedef struct redisObject <span style="color:#f92672">{</span>                                          
+</span></span><span style="display:flex;"><span>     //对象的类型
+</span></span><span style="display:flex;"><span>     unsigned type:4;
+</span></span><span style="display:flex;"><span>     //对象采用的编码方式                                             
+</span></span><span style="display:flex;"><span>     unsigned encoding:4;
+</span></span><span style="display:flex;"><span>     //对象最后一次被命令程序访问的时间                             
+</span></span><span style="display:flex;"><span>     unsigned lru:LRU_BITS; /* LRU time <span style="color:#f92672">(</span>relative to global lru_clock<span style="color:#f92672">)</span> or
+</span></span><span style="display:flex;"><span>                             * LFU data <span style="color:#f92672">(</span>least significant <span style="color:#ae81ff">8</span> bits frequency
+</span></span><span style="display:flex;"><span>                             * and most significant <span style="color:#ae81ff">16</span> bits decreas time<span style="color:#f92672">)</span>. */
+</span></span><span style="display:flex;"><span>     //对象引用计数
+</span></span><span style="display:flex;"><span>     int refcount; 
+</span></span><span style="display:flex;"><span>     //指向底层数据结构的指针
+</span></span><span style="display:flex;"><span>     void *ptr;                                                                                                                                                        
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> robj;                                                                                                                                                               
+</span></span></code></pre></div><ul>
+<li>redisObject结构体中type表示对象的类型，type的取值如下：</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* A redis object, that is a type able to hold a string / list / set */
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* The actual Redis Object */
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_STRING 0</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_LIST 1</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_SET 2</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ZSET 3</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_HASH 4</span>
+</span></span></code></pre></div><ul>
+<li>redisObject结构体中encoding表示type类型的对象采用哪种数据结构作为底层实现，encoding的取值如下:</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Objects encoding. Some kind of objects like Strings and Hashes can be
+</span></span><span style="display:flex;"><span> * internally represented in multiple ways. The <span style="color:#e6db74">&#39;encoding&#39;</span> field of the object
+</span></span><span style="display:flex;"><span> * is set to one of this fields <span style="color:#66d9ef">for</span> this object. */
+</span></span><span style="display:flex;"><span>//sds
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_RAW 0     /* Raw representation */</span>
+</span></span><span style="display:flex;"><span>//<span style="color:#e6db74">&#34;1234&#34;</span>存储为数字1234，即ptr<span style="color:#f92672">=(</span>void*<span style="color:#f92672">)</span>1234;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_INT 1     /* Encoded as integer */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_HT 2      /* Encoded as hash table */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_ZIPMAP 3  /* Encoded as zipmap */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_LINKEDLIST 4 /* No longer used: old list encoding. */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_ZIPLIST 5 /* Encoded as ziplist */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_INTSET 6  /* Encoded as intset */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_SKIPLIST 7  /* Encoded as skiplist */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_EMBSTR 8  /* Embedded sds string encoding */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */</span>
+</span></span></code></pre></div><h4 id="2objectc源码分析">2.object.c源码分析</h4>
+<ul>
+<li>创建一个redisObject对象</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>//创建一个redisObject对象
+</span></span><span style="display:flex;"><span>robj *createObject<span style="color:#f92672">(</span>int type, void *ptr<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    robj *o <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*o<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    o-&gt;type <span style="color:#f92672">=</span> type;
+</span></span><span style="display:flex;"><span>	//sds
+</span></span><span style="display:flex;"><span>    o-&gt;encoding <span style="color:#f92672">=</span> OBJ_ENCODING_RAW;
+</span></span><span style="display:flex;"><span>    o-&gt;ptr <span style="color:#f92672">=</span> ptr;
+</span></span><span style="display:flex;"><span>	//引用计数
+</span></span><span style="display:flex;"><span>    o-&gt;refcount <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Set the LRU to the current lruclock <span style="color:#f92672">(</span>minutes resolution<span style="color:#f92672">)</span>, or
+</span></span><span style="display:flex;"><span>     * alternatively the LFU counter. */
+</span></span><span style="display:flex;"><span>	//lru字段用于记录对象最后一次被命令程序访问的时间
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>server.maxmemory_policy &amp; MAXMEMORY_FLAG_LFU<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        o-&gt;lru <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>LFUGetTimeInMinutes<span style="color:#f92672">()</span>&lt;&lt;8<span style="color:#f92672">)</span> | LFU_INIT_VAL;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        o-&gt;lru <span style="color:#f92672">=</span> LRU_CLOCK<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> o;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><ul>
+<li>redisObject对象refcount字段减1.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>void decrRefCount<span style="color:#f92672">(</span>robj *o<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>o-&gt;refcount <span style="color:#f92672">==</span> 1<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        switch<span style="color:#f92672">(</span>o-&gt;type<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> OBJ_STRING: freeStringObject<span style="color:#f92672">(</span>o<span style="color:#f92672">)</span>; break;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> OBJ_LIST: freeListObject<span style="color:#f92672">(</span>o<span style="color:#f92672">)</span>; break;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> OBJ_SET: freeSetObject<span style="color:#f92672">(</span>o<span style="color:#f92672">)</span>; break;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> OBJ_ZSET: freeZsetObject<span style="color:#f92672">(</span>o<span style="color:#f92672">)</span>; break;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> OBJ_HASH: freeHashObject<span style="color:#f92672">(</span>o<span style="color:#f92672">)</span>; break;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> OBJ_MODULE: freeModuleObject<span style="color:#f92672">(</span>o<span style="color:#f92672">)</span>; break;
+</span></span><span style="display:flex;"><span>        default: serverPanic<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Unknown object type&#34;</span><span style="color:#f92672">)</span>; break;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        zfree<span style="color:#f92672">(</span>o<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>o-&gt;refcount &lt;<span style="color:#f92672">=</span> 0<span style="color:#f92672">)</span> serverPanic<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;decrRefCount against refcount &lt;= 0&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>o-&gt;refcount !<span style="color:#f92672">=</span> OBJ_SHARED_REFCOUNT<span style="color:#f92672">)</span> o-&gt;refcount--;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="4参考文献">4.参考文献</h4>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/redis4-multi/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-pub/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

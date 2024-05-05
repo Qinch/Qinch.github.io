@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_event源码剖析
+category: redis
+date: 2017-12-10
+tags: [redis4.0,event,sourcecode]
+toc: false
+comments: false
+1.Event概述
+redis是一个事件驱动程序，服务器处理以下两个事件：
+
+
+fd事件(IO多路复用)
+
+
+time事件（时间精度秒级）
+服务器所有的时间事件都放在一个无序链表中，每当时间事件处理器运行时，就遍历整个链表，查找所有已经到达的时间事件，并调用相应的处理函数
+
+
+2.关键数据结构
+/* File event structure */
+typedef struct aeFileEvent {
+    //读或者写
+    int mask; /* one of AE_(READABLE|WRITABLE) */
+    //读处理函数指针
+    aeFileProc *rfileProc;
+    //写函数指针
+    aeFileProc *wfileProc;
+    void *clientData;
+} aeFileEvent;
+
+/* Time event structure */
+typedef struct aeTimeEvent {
+    //时间事件ID
+    long long id; /* time event identifier. */
+    long when_sec; /* seconds */
+    long when_ms; /* milliseconds */
+    aeTimeProc *timeProc;
+    aeEventFinalizerProc *finalizerProc;
+    void *clientData;
+    //无序链表
+    struct aeTimeEvent *next;
+} aeTimeEvent;
+
+/* A fired event */
+//fd有event触发
+typedef struct aeFiredEvent {
+    int fd;
+    int mask;
+} aeFiredEvent;
+
+/* State of an event based program */
+typedef struct aeEventLoop {
+    //当前注册的fd的最大值
+    int maxfd;   /* highest file descriptor currently registered */
+    int setsize; /* max number of file descriptors tracked */
+    long long timeEventNextId;
+    time_t lastTime;     /* Used to detect system clock skew */
+    aeFileEvent *events; /* Registered events */
+    aeFiredEvent *fired; /* Fired events */
+    //时间事件链表
+    aeTimeEvent *timeEventHead;
+    int stop;
+    void *apidata; /* This is used for polling API specific data */
+    //select/poll/epoll sleep之前执行的函数指针
+    aeBeforeSleepProc *beforesleep;
+    //select/poll/epoll wakeup之后执行的函数指针
+    aeBeforeSleepProc *aftersleep;
+} aeEventLoop;
+">
+  <meta property="og:description" content="title: redis4.0_event源码剖析
+category: redis
+date: 2017-12-10
+tags: [redis4.0,event,sourcecode]
+toc: false
+comments: false
+1.Event概述
+redis是一个事件驱动程序，服务器处理以下两个事件：
+
+
+fd事件(IO多路复用)
+
+
+time事件（时间精度秒级）
+服务器所有的时间事件都放在一个无序链表中，每当时间事件处理器运行时，就遍历整个链表，查找所有已经到达的时间事件，并调用相应的处理函数
+
+
+2.关键数据结构
+/* File event structure */
+typedef struct aeFileEvent {
+    //读或者写
+    int mask; /* one of AE_(READABLE|WRITABLE) */
+    //读处理函数指针
+    aeFileProc *rfileProc;
+    //写函数指针
+    aeFileProc *wfileProc;
+    void *clientData;
+} aeFileEvent;
+
+/* Time event structure */
+typedef struct aeTimeEvent {
+    //时间事件ID
+    long long id; /* time event identifier. */
+    long when_sec; /* seconds */
+    long when_ms; /* milliseconds */
+    aeTimeProc *timeProc;
+    aeEventFinalizerProc *finalizerProc;
+    void *clientData;
+    //无序链表
+    struct aeTimeEvent *next;
+} aeTimeEvent;
+
+/* A fired event */
+//fd有event触发
+typedef struct aeFiredEvent {
+    int fd;
+    int mask;
+} aeFiredEvent;
+
+/* State of an event based program */
+typedef struct aeEventLoop {
+    //当前注册的fd的最大值
+    int maxfd;   /* highest file descriptor currently registered */
+    int setsize; /* max number of file descriptors tracked */
+    long long timeEventNextId;
+    time_t lastTime;     /* Used to detect system clock skew */
+    aeFileEvent *events; /* Registered events */
+    aeFiredEvent *fired; /* Fired events */
+    //时间事件链表
+    aeTimeEvent *timeEventHead;
+    int stop;
+    void *apidata; /* This is used for polling API specific data */
+    //select/poll/epoll sleep之前执行的函数指针
+    aeBeforeSleepProc *beforesleep;
+    //select/poll/epoll wakeup之后执行的函数指针
+    aeBeforeSleepProc *aftersleep;
+} aeEventLoop;
+">
+  <meta name="twitter:description" content="title: redis4.0_event源码剖析
+category: redis
+date: 2017-12-10
+tags: [redis4.0,event,sourcecode]
+toc: false
+comments: false
+1.Event概述
+redis是一个事件驱动程序，服务器处理以下两个事件：
+
+
+fd事件(IO多路复用)
+
+
+time事件（时间精度秒级）
+服务器所有的时间事件 …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-event/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-false">title: redis4.0_event源码剖析
+category: redis
+date: 2017-12-10
+tags: [redis4.0,event,sourcecode]
+toc: false
+comments: false</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-false">title: redis4.0_event源码剖析
+category: redis
+date: 2017-12-10
+tags: [redis4.0,event,sourcecode]
+toc: false
+comments: false</h2>
+<h4 id="1event概述">1.Event概述</h4>
+<p>redis是一个事件驱动程序，服务器处理以下两个事件：</p>
+<ol>
+<li>
+<p>fd事件(IO多路复用)</p>
+</li>
+<li>
+<p>time事件（时间精度秒级）
+服务器所有的时间事件都放在一个无序链表中，每当时间事件处理器运行时，就遍历整个链表，查找所有已经到达的时间事件，并调用相应的处理函数</p>
+</li>
+</ol>
+<h4 id="2关键数据结构">2.关键数据结构</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* File event structure */
+</span></span><span style="display:flex;"><span>typedef struct aeFileEvent <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    //读或者写
+</span></span><span style="display:flex;"><span>    int mask; /* one of AE_<span style="color:#f92672">(</span>READABLE|WRITABLE<span style="color:#f92672">)</span> */
+</span></span><span style="display:flex;"><span>    //读处理函数指针
+</span></span><span style="display:flex;"><span>    aeFileProc *rfileProc;
+</span></span><span style="display:flex;"><span>    //写函数指针
+</span></span><span style="display:flex;"><span>    aeFileProc *wfileProc;
+</span></span><span style="display:flex;"><span>    void *clientData;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> aeFileEvent;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Time event structure */
+</span></span><span style="display:flex;"><span>typedef struct aeTimeEvent <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    //时间事件ID
+</span></span><span style="display:flex;"><span>    long long id; /* time event identifier. */
+</span></span><span style="display:flex;"><span>    long when_sec; /* seconds */
+</span></span><span style="display:flex;"><span>    long when_ms; /* milliseconds */
+</span></span><span style="display:flex;"><span>    aeTimeProc *timeProc;
+</span></span><span style="display:flex;"><span>    aeEventFinalizerProc *finalizerProc;
+</span></span><span style="display:flex;"><span>    void *clientData;
+</span></span><span style="display:flex;"><span>    //无序链表
+</span></span><span style="display:flex;"><span>    struct aeTimeEvent *next;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> aeTimeEvent;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* A fired event */
+</span></span><span style="display:flex;"><span>//fd有event触发
+</span></span><span style="display:flex;"><span>typedef struct aeFiredEvent <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int fd;
+</span></span><span style="display:flex;"><span>    int mask;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> aeFiredEvent;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* State of an event based program */
+</span></span><span style="display:flex;"><span>typedef struct aeEventLoop <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    //当前注册的fd的最大值
+</span></span><span style="display:flex;"><span>    int maxfd;   /* highest file descriptor currently registered */
+</span></span><span style="display:flex;"><span>    int setsize; /* max number of file descriptors tracked */
+</span></span><span style="display:flex;"><span>    long long timeEventNextId;
+</span></span><span style="display:flex;"><span>    time_t lastTime;     /* Used to detect system clock skew */
+</span></span><span style="display:flex;"><span>    aeFileEvent *events; /* Registered events */
+</span></span><span style="display:flex;"><span>    aeFiredEvent *fired; /* Fired events */
+</span></span><span style="display:flex;"><span>    //时间事件链表
+</span></span><span style="display:flex;"><span>    aeTimeEvent *timeEventHead;
+</span></span><span style="display:flex;"><span>    int stop;
+</span></span><span style="display:flex;"><span>    void *apidata; /* This is used <span style="color:#66d9ef">for</span> polling API specific data */
+</span></span><span style="display:flex;"><span>    //select/poll/epoll sleep之前执行的函数指针
+</span></span><span style="display:flex;"><span>    aeBeforeSleepProc *beforesleep;
+</span></span><span style="display:flex;"><span>    //select/poll/epoll wakeup之后执行的函数指针
+</span></span><span style="display:flex;"><span>    aeBeforeSleepProc *aftersleep;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> aeEventLoop;
+</span></span></code></pre></div><h4 id="3事件处理器">3.事件处理器</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Process every pending time event, <span style="color:#66d9ef">then</span> every pending file event
+</span></span><span style="display:flex;"><span> * <span style="color:#f92672">(</span>that may be registered by time event callbacks just processed<span style="color:#f92672">)</span>.
+</span></span><span style="display:flex;"><span> * Without special flags the <span style="color:#66d9ef">function</span> sleeps <span style="color:#66d9ef">until</span> some file event
+</span></span><span style="display:flex;"><span> * fires, or when the next time event occurs <span style="color:#f92672">(</span><span style="color:#66d9ef">if</span> any<span style="color:#f92672">)</span>.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * If flags is 0, the <span style="color:#66d9ef">function</span> does nothing and returns.
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">if</span> flags has AE_ALL_EVENTS set, all the kind of events are processed.
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">if</span> flags has AE_FILE_EVENTS set, file events are processed.
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">if</span> flags has AE_TIME_EVENTS set, time events are processed.
+</span></span><span style="display:flex;"><span>    //select的sleep时间为0
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">if</span> flags has AE_DONT_WAIT set the <span style="color:#66d9ef">function</span> returns ASAP <span style="color:#66d9ef">until</span> all
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">if</span> flags has AE_CALL_AFTER_SLEEP set, the aftersleep callback is called.
+</span></span><span style="display:flex;"><span> * the events that<span style="color:#e6db74">&#39;s possible to process without to wait are processed.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * The function returns the number of events processed. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int aeProcessEvents(aeEventLoop *eventLoop, int flags)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    int processed = 0, numevents;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Nothing to do? return ASAP */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (!(flags &amp; AE_TIME_EVENTS) &amp;&amp; !(flags &amp; AE_FILE_EVENTS)) return 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Note that we want call select() even if there are no
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * file events to process as long as we want to process time
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * events, in order to sleep until the next time event is ready
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * to fire. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    //注册了fd事件或者注册了时间事件并且需要select sleep
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (eventLoop-&gt;maxfd != -1 ||
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        ((flags &amp; AE_TIME_EVENTS) &amp;&amp; !(flags &amp; AE_DONT_WAIT))) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        int j;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        aeTimeEvent *shortest = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        struct timeval tv, *tvp;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (flags &amp; AE_TIME_EVENTS &amp;&amp; !(flags &amp; AE_DONT_WAIT))
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            shortest = aeSearchNearestTimer(eventLoop);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (shortest) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            long now_sec, now_ms;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            aeGetTime(&amp;now_sec, &amp;now_ms);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            tvp = &amp;tv;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            /* How many milliseconds we need to wait for the next
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">             * time event to fire? */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">			//select函数阻塞时间
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            long long ms =
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                (shortest-&gt;when_sec - now_sec)*1000 +
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                shortest-&gt;when_ms - now_ms;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (ms &gt; 0) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                tvp-&gt;tv_sec = ms/1000;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                tvp-&gt;tv_usec = (ms % 1000)*1000;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                tvp-&gt;tv_sec = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                tvp-&gt;tv_usec = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            /* If we have to check for events but need to return
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">             * ASAP because of AE_DONT_WAIT we need to set the timeout
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">             * to zero */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">			//select阻塞时间设置为0,表示立即返回
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (flags &amp; AE_DONT_WAIT) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                tv.tv_sec = tv.tv_usec = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                tvp = &amp;tv;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                /* Otherwise we can block */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                tvp = NULL; /* wait forever */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Call the multiplexing API, will return only on timeout or when
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * some event fires. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        numevents = aeApiPoll(eventLoop, tvp);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* After sleep callback. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//阻塞唤醒之后回调函数
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (eventLoop-&gt;aftersleep != NULL &amp;&amp; flags &amp; AE_CALL_AFTER_SLEEP)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            eventLoop-&gt;aftersleep(eventLoop);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        for (j = 0; j &lt; numevents; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            aeFileEvent *fe = &amp;eventLoop-&gt;events[eventLoop-&gt;fired[j].fd];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            int mask = eventLoop-&gt;fired[j].mask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            int fd = eventLoop-&gt;fired[j].fd;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            int rfired = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	    /* note the fe-&gt;mask &amp; mask &amp; ... code: maybe an already processed
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">             * event removed an element that fired and we still didn&#39;</span>t
+</span></span><span style="display:flex;"><span>             * processed, so we check <span style="color:#66d9ef">if</span> the event is still valid. */
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>fe-&gt;mask &amp; mask &amp; AE_READABLE<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                rfired <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>                fe-&gt;rfileProc<span style="color:#f92672">(</span>eventLoop,fd,fe-&gt;clientData,mask<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>fe-&gt;mask &amp; mask &amp; AE_WRITABLE<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!rfired <span style="color:#f92672">||</span> fe-&gt;wfileProc !<span style="color:#f92672">=</span> fe-&gt;rfileProc<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                    fe-&gt;wfileProc<span style="color:#f92672">(</span>eventLoop,fd,fe-&gt;clientData,mask<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            processed++;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    /* Check time events */
+</span></span><span style="display:flex;"><span>    //检查时间事件
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>flags &amp; AE_TIME_EVENTS<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        processed <span style="color:#f92672">+=</span> processTimeEvents<span style="color:#f92672">(</span>eventLoop<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> processed; /* <span style="color:#66d9ef">return</span> the number of processed file/time events */
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Process time events */
+</span></span><span style="display:flex;"><span>//返回处理事件事件的数量
+</span></span><span style="display:flex;"><span>static int processTimeEvents<span style="color:#f92672">(</span>aeEventLoop *eventLoop<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int processed <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    aeTimeEvent *te, *prev;
+</span></span><span style="display:flex;"><span>    long long maxId;
+</span></span><span style="display:flex;"><span>    time_t now <span style="color:#f92672">=</span> time<span style="color:#f92672">(</span>NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* If the system clock is moved to the future, and <span style="color:#66d9ef">then</span> set back to the
+</span></span><span style="display:flex;"><span>     * right value, time events may be delayed in a random way. Often this
+</span></span><span style="display:flex;"><span>     * means that scheduled operations will not be performed soon enough.
+</span></span><span style="display:flex;"><span>     *
+</span></span><span style="display:flex;"><span>     * Here we try to detect system clock skews, and force all the time
+</span></span><span style="display:flex;"><span>     * events to be processed ASAP when this happens: the idea is that
+</span></span><span style="display:flex;"><span>     * processing events earlier is less dangerous than delaying them
+</span></span><span style="display:flex;"><span>     * indefinitely, and practice suggests it is. */
+</span></span><span style="display:flex;"><span>    //如果发生系统时间偏差，比如将系统时间调到未来某个时间点，然后又设置回正确的时间。
+</span></span><span style="display:flex;"><span>    //此时的处理方法：时间事件链表中所有节点的when_sec时间设置为0,表示立即处理这些时间事件。
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>now &lt; eventLoop-&gt;lastTime<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        te <span style="color:#f92672">=</span> eventLoop-&gt;timeEventHead;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>te<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            te-&gt;when_sec <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>            te <span style="color:#f92672">=</span> te-&gt;next;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    //用于处理系统时间偏差
+</span></span><span style="display:flex;"><span>    eventLoop-&gt;lastTime <span style="color:#f92672">=</span> now;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    prev <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    te <span style="color:#f92672">=</span> eventLoop-&gt;timeEventHead;
+</span></span><span style="display:flex;"><span>	//因为新的时间事件都是插入首节点
+</span></span><span style="display:flex;"><span>    maxId <span style="color:#f92672">=</span> eventLoop-&gt;timeEventNextId-1;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>te<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        long now_sec, now_ms;
+</span></span><span style="display:flex;"><span>        long long id;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* Remove events scheduled <span style="color:#66d9ef">for</span> deletion. */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>te-&gt;id <span style="color:#f92672">==</span> AE_DELETED_EVENT_ID<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            aeTimeEvent *next <span style="color:#f92672">=</span> te-&gt;next;
+</span></span><span style="display:flex;"><span>	    //为首个节点
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>prev <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                eventLoop-&gt;timeEventHead <span style="color:#f92672">=</span> te-&gt;next;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>                prev-&gt;next <span style="color:#f92672">=</span> te-&gt;next;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>te-&gt;finalizerProc<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                te-&gt;finalizerProc<span style="color:#f92672">(</span>eventLoop, te-&gt;clientData<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            zfree<span style="color:#f92672">(</span>te<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            te <span style="color:#f92672">=</span> next;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">continue</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* Make sure we don<span style="color:#960050;background-color:#1e0010">&#39;</span>t process time events created by time events in
+</span></span><span style="display:flex;"><span>         * this iteration. Note that this check is currently useless: we always
+</span></span><span style="display:flex;"><span>         * add new timers on the head, however <span style="color:#66d9ef">if</span> we change the implementation
+</span></span><span style="display:flex;"><span>         * detail, this check may be useful again: we keep it here <span style="color:#66d9ef">for</span> future
+</span></span><span style="display:flex;"><span>         * defense. */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>te-&gt;id &gt; maxId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            te <span style="color:#f92672">=</span> te-&gt;next;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">continue</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        aeGetTime<span style="color:#f92672">(</span>&amp;now_sec, &amp;now_ms<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>now_sec &gt; te-&gt;when_sec <span style="color:#f92672">||</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">(</span>now_sec <span style="color:#f92672">==</span> te-&gt;when_sec <span style="color:#f92672">&amp;&amp;</span> now_ms &gt;<span style="color:#f92672">=</span> te-&gt;when_ms<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            int retval;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            id <span style="color:#f92672">=</span> te-&gt;id;
+</span></span><span style="display:flex;"><span>            retval <span style="color:#f92672">=</span> te-&gt;timeProc<span style="color:#f92672">(</span>eventLoop, id, te-&gt;clientData<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            processed++;
+</span></span><span style="display:flex;"><span>	    //如果返回值不是NOMORE，则表示继续注册时间事件
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>retval !<span style="color:#f92672">=</span> AE_NOMORE<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                aeAddMillisecondsToNow<span style="color:#f92672">(</span>retval,&amp;te-&gt;when_sec,&amp;te-&gt;when_ms<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                te-&gt;id <span style="color:#f92672">=</span> AE_DELETED_EVENT_ID;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        prev <span style="color:#f92672">=</span> te;
+</span></span><span style="display:flex;"><span>        te <span style="color:#f92672">=</span> te-&gt;next;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> processed;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="3参考文献">3.参考文献</h4>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/redis4-dict/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-intset/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

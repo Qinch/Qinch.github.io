@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_skiplist源码剖析
+category: redis
+date: 2017-12-02
+tags: [redis4.0,skiplist,sourcecode]
+toc: false
+comments: false
+1.skiplist概述
+
+skiplist(跳跃表)是一种有序数据结构，它通过在每个节点中维持多个指向其他节点指针，从而达到快速访问节点的目的。
+skiplist支持平均O(logN),最坏O(N)复杂度的节点查找，还可以通过顺序性操作来批量处理节点。
+This skiplist implementation is almost a C translation of the original algorithm described by William Pugh in &ldquo;Skip Lists: A Probabilistic Alternative to Balanced Trees&rdquo;, modified in three ways:
+a) this implementation allows for repeated scores.
+b) the comparison is not just by key (our &lsquo;score&rsquo;) but by satellite data.
+c) there is a back pointer, so it&rsquo;s a doubly linked list with the back  pointers being only at &ldquo;level 1&rdquo;. This allows to traverse the list from tail to head, useful for ZREVRANGE. */
+
+2.skiplist结构体
+
+/* ZSETs use a specialized version of Skiplists */
+typedef struct zskiplistNode {
+    sds ele;
+    double score;
+    struct zskiplistNode *backward;
+    struct zskiplistLevel {
+        struct zskiplistNode *forward;
+        unsigned int span;//跨度：用于记录与forward指向节点的距离
+    } level[]; //0长度数组的妙用
+} zskiplistNode;
+
+typedef struct zskiplist {
+    //指向skiplist中表头节点和表尾节点
+    struct zskiplistNode *header, *tail;
+    //skiplist中节点的数量（不包括表头节点）
+    unsigned long length;
+    //skiplist中层数最高的节点的层数
+    int level;
+} zskiplist;
+">
+  <meta property="og:description" content="title: redis4.0_skiplist源码剖析
+category: redis
+date: 2017-12-02
+tags: [redis4.0,skiplist,sourcecode]
+toc: false
+comments: false
+1.skiplist概述
+
+skiplist(跳跃表)是一种有序数据结构，它通过在每个节点中维持多个指向其他节点指针，从而达到快速访问节点的目的。
+skiplist支持平均O(logN),最坏O(N)复杂度的节点查找，还可以通过顺序性操作来批量处理节点。
+This skiplist implementation is almost a C translation of the original algorithm described by William Pugh in &ldquo;Skip Lists: A Probabilistic Alternative to Balanced Trees&rdquo;, modified in three ways:
+a) this implementation allows for repeated scores.
+b) the comparison is not just by key (our &lsquo;score&rsquo;) but by satellite data.
+c) there is a back pointer, so it&rsquo;s a doubly linked list with the back  pointers being only at &ldquo;level 1&rdquo;. This allows to traverse the list from tail to head, useful for ZREVRANGE. */
+
+2.skiplist结构体
+
+/* ZSETs use a specialized version of Skiplists */
+typedef struct zskiplistNode {
+    sds ele;
+    double score;
+    struct zskiplistNode *backward;
+    struct zskiplistLevel {
+        struct zskiplistNode *forward;
+        unsigned int span;//跨度：用于记录与forward指向节点的距离
+    } level[]; //0长度数组的妙用
+} zskiplistNode;
+
+typedef struct zskiplist {
+    //指向skiplist中表头节点和表尾节点
+    struct zskiplistNode *header, *tail;
+    //skiplist中节点的数量（不包括表头节点）
+    unsigned long length;
+    //skiplist中层数最高的节点的层数
+    int level;
+} zskiplist;
+">
+  <meta name="twitter:description" content="title: redis4.0_skiplist源码剖析
+category: redis
+date: 2017-12-02
+tags: [redis4.0,skiplist,sourcecode]
+toc: false
+comments: false
+1.skiplist概述
+
+skiplist(跳跃表)是一种有序数据结构，它通过在每个节点中维持多个指向其他节点指针，从而达到快速访问节点的目的。 …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-skiplist/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-false">title: redis4.0_skiplist源码剖析
+category: redis
+date: 2017-12-02
+tags: [redis4.0,skiplist,sourcecode]
+toc: false
+comments: false</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-false">title: redis4.0_skiplist源码剖析
+category: redis
+date: 2017-12-02
+tags: [redis4.0,skiplist,sourcecode]
+toc: false
+comments: false</h2>
+<h4 id="1skiplist概述">1.skiplist概述</h4>
+<ul>
+<li>skiplist(跳跃表)是一种有序数据结构，它通过在每个节点中维持多个指向其他节点指针，从而达到快速访问节点的目的。</li>
+<li>skiplist支持平均O(logN),最坏O(N)复杂度的节点查找，还可以通过顺序性操作来批量处理节点。</li>
+<li>This skiplist implementation is almost a C translation of the original algorithm described by William Pugh in &ldquo;Skip Lists: A Probabilistic Alternative to Balanced Trees&rdquo;, modified in three ways:</li>
+<li>a) this implementation allows for repeated scores.</li>
+<li>b) the comparison is not just by key (our &lsquo;score&rsquo;) but by satellite data.</li>
+<li>c) there is a back pointer, so it&rsquo;s a doubly linked list with the back  pointers being only at &ldquo;level 1&rdquo;. This allows to traverse the list from tail to head, useful for ZREVRANGE. */</li>
+</ul>
+<h4 id="2skiplist结构体">2.skiplist结构体</h4>
+<p><img src="/img/skiplist0.png" alt="单击图片进行放大"></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* ZSETs use a specialized version of Skiplists */
+</span></span><span style="display:flex;"><span>typedef struct zskiplistNode <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    sds ele;
+</span></span><span style="display:flex;"><span>    double score;
+</span></span><span style="display:flex;"><span>    struct zskiplistNode *backward;
+</span></span><span style="display:flex;"><span>    struct zskiplistLevel <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        struct zskiplistNode *forward;
+</span></span><span style="display:flex;"><span>        unsigned int span;//跨度：用于记录与forward指向节点的距离
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> level<span style="color:#f92672">[]</span>; //0长度数组的妙用
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> zskiplistNode;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>typedef struct zskiplist <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    //指向skiplist中表头节点和表尾节点
+</span></span><span style="display:flex;"><span>    struct zskiplistNode *header, *tail;
+</span></span><span style="display:flex;"><span>    //skiplist中节点的数量（不包括表头节点）
+</span></span><span style="display:flex;"><span>    unsigned long length;
+</span></span><span style="display:flex;"><span>    //skiplist中层数最高的节点的层数
+</span></span><span style="display:flex;"><span>    int level;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> zskiplist;
+</span></span></code></pre></div><h4 id="3skiplist源码">3.skiplist源码</h4>
+<ul>
+<li>创建一个skiplist</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Create a skiplist node with the specified number of levels.
+</span></span><span style="display:flex;"><span> * The SDS string <span style="color:#e6db74">&#39;ele&#39;</span> is referenced by the node after the call. */
+</span></span><span style="display:flex;"><span>//创建一个skiplist node<span style="color:#f92672">(</span>节点<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>zskiplistNode *zslCreateNode<span style="color:#f92672">(</span>int level, double score, sds ele<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    zskiplistNode *zn <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>        zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*zn<span style="color:#f92672">)</span>+level*sizeof<span style="color:#f92672">(</span>struct zskiplistLevel<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    zn-&gt;score <span style="color:#f92672">=</span> score;
+</span></span><span style="display:flex;"><span>    zn-&gt;ele <span style="color:#f92672">=</span> ele;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> zn;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Create a new skiplist. */
+</span></span><span style="display:flex;"><span>//创建一个skiplist
+</span></span><span style="display:flex;"><span>zskiplist *zslCreate<span style="color:#f92672">(</span>void<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int j;
+</span></span><span style="display:flex;"><span>    zskiplist *zsl;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    zsl <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*zsl<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    zsl-&gt;level <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>    zsl-&gt;length <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    //闯将skiplist表头节点
+</span></span><span style="display:flex;"><span>    zsl-&gt;header <span style="color:#f92672">=</span> zslCreateNode<span style="color:#f92672">(</span>ZSKIPLIST_MAXLEVEL,0,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 0; j &lt; ZSKIPLIST_MAXLEVEL; j++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        zsl-&gt;header-&gt;level<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>.forward <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>        zsl-&gt;header-&gt;level<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>.span <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    zsl-&gt;header-&gt;backward <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    zsl-&gt;tail <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> zsl;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Free the specified skiplist node. The referenced SDS string representation
+</span></span><span style="display:flex;"><span> * of the element is freed too, unless node-&gt;ele is set to NULL before calling
+</span></span><span style="display:flex;"><span> * this <span style="color:#66d9ef">function</span>. */
+</span></span><span style="display:flex;"><span>void zslFreeNode<span style="color:#f92672">(</span>zskiplistNode *node<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    sdsfree<span style="color:#f92672">(</span>node-&gt;ele<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>node<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Free a whole skiplist. */
+</span></span><span style="display:flex;"><span>void zslFree<span style="color:#f92672">(</span>zskiplist *zsl<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    zskiplistNode *node <span style="color:#f92672">=</span> zsl-&gt;header-&gt;level<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.forward, *next;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>zsl-&gt;header<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>node<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        next <span style="color:#f92672">=</span> node-&gt;level<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.forward;
+</span></span><span style="display:flex;"><span>        zslFreeNode<span style="color:#f92672">(</span>node<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        node <span style="color:#f92672">=</span> next;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>zsl<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><ul>
+<li>skiplist中插入一个新的节点</li>
+</ul>
+<p><img src="/img/skiplist1.png" alt="单击放大图片"></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Returns a random level <span style="color:#66d9ef">for</span> the new skiplist node we are going to create.
+</span></span><span style="display:flex;"><span> * The <span style="color:#66d9ef">return</span> value of this <span style="color:#66d9ef">function</span> is between <span style="color:#ae81ff">1</span> and ZSKIPLIST_MAXLEVEL
+</span></span><span style="display:flex;"><span> * <span style="color:#f92672">(</span>both inclusive<span style="color:#f92672">)</span>, with a powerlaw-alike distribution where higher
+</span></span><span style="display:flex;"><span> * levels are less likely to be returned. */
+</span></span><span style="display:flex;"><span>int zslRandomLevel<span style="color:#f92672">(</span>void<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int level <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#f92672">((</span>random<span style="color:#f92672">()</span>&amp;0xFFFF<span style="color:#f92672">)</span> &lt; <span style="color:#f92672">(</span>ZSKIPLIST_P * 0xFFFF<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>        level <span style="color:#f92672">+=</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#f92672">(</span>level&lt;ZSKIPLIST_MAXLEVEL<span style="color:#f92672">)</span> ? level : ZSKIPLIST_MAXLEVEL;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Insert a new node in the skiplist. Assumes the element does not already
+</span></span><span style="display:flex;"><span> * exist <span style="color:#f92672">(</span>up to the caller to enforce that<span style="color:#f92672">)</span>. The skiplist takes ownership
+</span></span><span style="display:flex;"><span> * of the passed SDS string <span style="color:#e6db74">&#39;ele&#39;</span>. */
+</span></span><span style="display:flex;"><span>//在skiplist中插入一个node
+</span></span><span style="display:flex;"><span>zskiplistNode *zslInsert<span style="color:#f92672">(</span>zskiplist *zsl, double score, sds ele<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    zskiplistNode *update<span style="color:#f92672">[</span>ZSKIPLIST_MAXLEVEL<span style="color:#f92672">]</span>, *x;
+</span></span><span style="display:flex;"><span>    unsigned int rank<span style="color:#f92672">[</span>ZSKIPLIST_MAXLEVEL<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    int i, level;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    serverAssert<span style="color:#f92672">(</span>!isnan<span style="color:#f92672">(</span>score<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> zsl-&gt;header;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> zsl-&gt;level-1; i &gt;<span style="color:#f92672">=</span> 0; i--<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        /* store rank that is crossed to reach the insert position */
+</span></span><span style="display:flex;"><span>	//rank<span style="color:#f92672">[</span>i<span style="color:#f92672">]=</span>rank<span style="color:#f92672">[</span>i+1<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        rank<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> i <span style="color:#f92672">==</span> <span style="color:#f92672">(</span>zsl-&gt;level-1<span style="color:#f92672">)</span> ? <span style="color:#ae81ff">0</span> : rank<span style="color:#f92672">[</span>i+1<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward-&gt;score &lt; score <span style="color:#f92672">||</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward-&gt;score <span style="color:#f92672">==</span> score <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                    sdscmp<span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward-&gt;ele,ele<span style="color:#f92672">)</span> &lt; 0<span style="color:#f92672">)))</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            rank<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> +<span style="color:#f92672">=</span> x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span;
+</span></span><span style="display:flex;"><span>            x <span style="color:#f92672">=</span> x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>	//为待插入节点的前一个节点的首地址
+</span></span><span style="display:flex;"><span>        update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> x;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    /* we assume the element is not already inside, since we allow duplicated
+</span></span><span style="display:flex;"><span>     * scores, reinserting the same element should never happen since the
+</span></span><span style="display:flex;"><span>     * caller of zslInsert<span style="color:#f92672">()</span> should test in the hash table <span style="color:#66d9ef">if</span> the element is
+</span></span><span style="display:flex;"><span>     * already inside or not. */
+</span></span><span style="display:flex;"><span>    //创建一个新的节点，用来记录else score
+</span></span><span style="display:flex;"><span>    level <span style="color:#f92672">=</span> zslRandomLevel<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>level &gt; zsl-&gt;level<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> zsl-&gt;level; i &lt; level; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            rank<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>            update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> zsl-&gt;header;
+</span></span><span style="display:flex;"><span>	    //到最后一个节点所指向的NULL的距离为length
+</span></span><span style="display:flex;"><span>            update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span <span style="color:#f92672">=</span> zsl-&gt;length;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>	//调整skiplist的最大层数
+</span></span><span style="display:flex;"><span>        zsl-&gt;level <span style="color:#f92672">=</span> level;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> zslCreateNode<span style="color:#f92672">(</span>level,score,ele<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> 0; i &lt; level; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward <span style="color:#f92672">=</span> update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward;
+</span></span><span style="display:flex;"><span>        update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward <span style="color:#f92672">=</span> x;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* update span covered by update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> as x is inserted here */
+</span></span><span style="display:flex;"><span>        x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span <span style="color:#f92672">=</span> update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span - <span style="color:#f92672">(</span>rank<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> - rank<span style="color:#f92672">[</span>i<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>        update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>rank<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> - rank<span style="color:#f92672">[</span>i<span style="color:#f92672">])</span> + 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* increment span <span style="color:#66d9ef">for</span> untouched levels */
+</span></span><span style="display:flex;"><span>    //新增节点的层高位level,更新level以上的层数的span
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> level; i &lt; zsl-&gt;level; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span++;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    x-&gt;backward <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>update<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> zsl-&gt;header<span style="color:#f92672">)</span> ? NULL : update<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.forward<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        x-&gt;level<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.forward-&gt;backward <span style="color:#f92672">=</span> x;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>        zsl-&gt;tail <span style="color:#f92672">=</span> x;
+</span></span><span style="display:flex;"><span>    zsl-&gt;length++;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> x;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><ul>
+<li>skiplist中删除一个节点</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Internal <span style="color:#66d9ef">function</span> used by zslDelete, zslDeleteByScore and zslDeleteByRank */
+</span></span><span style="display:flex;"><span>void zslDeleteNode<span style="color:#f92672">(</span>zskiplist *zsl, zskiplistNode *x, zskiplistNode **update<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int i;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> 0; i &lt; zsl-&gt;level; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward <span style="color:#f92672">==</span> x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span +<span style="color:#f92672">=</span> x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span - 1;
+</span></span><span style="display:flex;"><span>            update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward <span style="color:#f92672">=</span> x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.span -<span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.forward<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        x-&gt;level<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.forward-&gt;backward <span style="color:#f92672">=</span> x-&gt;backward;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        zsl-&gt;tail <span style="color:#f92672">=</span> x-&gt;backward;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>zsl-&gt;level &gt; <span style="color:#ae81ff">1</span> <span style="color:#f92672">&amp;&amp;</span> zsl-&gt;header-&gt;level<span style="color:#f92672">[</span>zsl-&gt;level-1<span style="color:#f92672">]</span>.forward <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        zsl-&gt;level--;
+</span></span><span style="display:flex;"><span>    zsl-&gt;length--;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Delete an element with matching score/element from the skiplist.
+</span></span><span style="display:flex;"><span> * The <span style="color:#66d9ef">function</span> returns <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">if</span> the node was found and deleted, otherwise
+</span></span><span style="display:flex;"><span> * <span style="color:#ae81ff">0</span> is returned.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * If <span style="color:#e6db74">&#39;node&#39;</span> is NULL the deleted node is freed by zslFreeNode<span style="color:#f92672">()</span>, otherwise
+</span></span><span style="display:flex;"><span> * it is not freed <span style="color:#f92672">(</span>but just unlinked<span style="color:#f92672">)</span> and *node is set to the node pointer,
+</span></span><span style="display:flex;"><span> * so that it is possible <span style="color:#66d9ef">for</span> the caller to reuse the node <span style="color:#f92672">(</span>including the
+</span></span><span style="display:flex;"><span> * referenced SDS string at node-&gt;ele<span style="color:#f92672">)</span>. */
+</span></span><span style="display:flex;"><span>//从skiplist删除指定节点
+</span></span><span style="display:flex;"><span>int zslDelete<span style="color:#f92672">(</span>zskiplist *zsl, double score, sds ele, zskiplistNode **node<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    zskiplistNode *update<span style="color:#f92672">[</span>ZSKIPLIST_MAXLEVEL<span style="color:#f92672">]</span>, *x;
+</span></span><span style="display:flex;"><span>    int i;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> zsl-&gt;header;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> zsl-&gt;level-1; i &gt;<span style="color:#f92672">=</span> 0; i--<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward-&gt;score &lt; score <span style="color:#f92672">||</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward-&gt;score <span style="color:#f92672">==</span> score <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                     sdscmp<span style="color:#f92672">(</span>x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward-&gt;ele,ele<span style="color:#f92672">)</span> &lt; 0<span style="color:#f92672">)))</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            x <span style="color:#f92672">=</span> x-&gt;level<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>.forward;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        update<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> x;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    /* We may have multiple elements with the same score, what we need
+</span></span><span style="display:flex;"><span>     * is to find the element with both the right score and object. */
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> x-&gt;level<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.forward;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>x <span style="color:#f92672">&amp;&amp;</span> score <span style="color:#f92672">==</span> x-&gt;score <span style="color:#f92672">&amp;&amp;</span> sdscmp<span style="color:#f92672">(</span>x-&gt;ele,ele<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        zslDeleteNode<span style="color:#f92672">(</span>zsl, x, update<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!node<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            zslFreeNode<span style="color:#f92672">(</span>x<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>            *node <span style="color:#f92672">=</span> x;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> 0; /* not found */
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="4参考文献">4.参考文献</h4>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/makefile/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-t_string/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

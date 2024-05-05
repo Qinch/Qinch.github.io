@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title>Posts - Just For Fun</title>
+  <meta property="og:title" content="Posts - Just For Fun" />
+  <meta name="twitter:title" content="Posts - Just For Fun" />
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link href="/posts/index.xml" rel="alternate" type="application/rss+xml" title="Just For Fun" />
+  <link href="/posts/index.xml" rel="feed" type="application/rss+xml" title="Just For Fun" />
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="breadcrumb">
+    Posts
+  </div>
+  <div class="main" role="main">
+    <section class="list section-list">
+      <article class="article">
+        <a href="/posts/snippet-pow2/" class="article-titles">
+          <h2 class="article-title"></h2>
+          
+        </a>
+        <ul class="article-meta">
+          <li class="article-meta-date"><time>January 1, 0001</time></li>
+        </ul>
+        <div class="article-content">
+          <h2 id="comments-false">title: Round up to the next highest power of 2
+category: snippet
+date:
+tags: [snippet]
+toc: false
+comments: false</h2>
+<h4 id="version1">version1</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>static unsigned int power2gt<span style="color:#f92672">(</span>unsigned int size<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>1<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>i &gt;<span style="color:#f92672">=</span> size<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> i;
+</span></span><span style="display:flex;"><span>    i *<span style="color:#f92672">=</span> 2;
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="version2">version2</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>static unsigned int power2gt<span style="color:#f92672">(</span>unsigned int size<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    --size;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 1;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 2;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 4;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 8;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 16;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> size + 1;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="参考资料">参考资料</h4>
+<ol>
+<li>the explanation of version2:<a href="http://bits.stephan-brumme.com/roundUpToNextPowerOfTwo.html">here</a></li>
+<li><a href="https://github.com/antirez/redis/issues/4776">Reidis#issue4776</a></li>
+</ol>
+
+        </div>
+        <div class="article-readmore"><a href="/posts/snippet-pow2/">Read more...</a></div>
+        <div class="article-floatclear"></div>
+      </article>
+      <article class="article">
+        <a href="/posts/thread_signal/" class="article-titles">
+          <h2 class="article-title"></h2>
+          
+        </a>
+        <ul class="article-meta">
+          <li class="article-meta-date"><time>January 1, 0001</time></li>
+        </ul>
+        <div class="article-content">
+          <h2 id="comments-true">title: 线程-信号
+category: 线程
+date: 2017-4-19
+tags: [thread,signal]
+toc: false
+comments: true</h2>
+<h4 id="1线程与信号">1,线程与信号</h4>
+<ol>
+<li>每个线程都有自己的信号屏蔽字，但是信号的处理是先进程中所有线程共享的。这就意味着单个线程可以阻止某些信号，但当某个线程修改了与某个给定信号相关的处理行为以后，所有的线程都必须共享这个处理行为的改变。</li>
+<li>进程中的信号是递送给单个线程的。（Signals are delivered to a single thread in the process. If the signal is related to a hardware fault, the signal is usually sent to the thread whose action caused the event. Other signals, on the other hand, are delivered to an arbitrary thread.)对于该句的理解是：因为进程中所有线程共享信号的处理，所以发送给任意进程（只要该进程没有屏蔽该信号），对该信号的处理都是相同的。</li>
+</ol>
+        </div>
+        <div class="article-readmore"><a href="/posts/thread_signal/">Read more...</a></div>
+        <div class="article-floatclear"></div>
+      </article>
+      <article class="article">
+        <a href="/posts/thunk/" class="article-titles">
+          <h2 class="article-title"></h2>
+          
+        </a>
+        <ul class="article-meta">
+          <li class="article-meta-date"><time>January 1, 0001</time></li>
+        </ul>
+        <div class="article-content">
+          title: MFC thunk技术模拟 category: Asm/Cpp date: 2013-4-3 tags: [Asm, MFC, thunk] toc: false comments: false //参考http://www.cnblogs.com/satng/archive/2010/12/30/2138833.html
+#include&lt;iostream&gt; using namespace std; //thunk技术模拟 typedef void (*fun)(void *,int i); class CFun;//类声明。 #pragma pack(push) #pragma pack(1) typedef struct Thunk{ unsigned char call; int offset; fun pf;//函数指针。 unsigned char code[5]; CFun *ths;//this指针。 unsigned char jmp; unsigned char ecx; }Thunk; #pragma pack(pop) #define OFF(s,m) ((unsigned int)&amp;((s*)0)-&gt;m)//求结构体的偏移量，s为结构体的类型，m为结构体的数据成员。 class CFun{ public: CFun() { createThunk(); } ~CFun() { delete thunk; } public: void createThunk() { Thunk* tk=new Thunk; //call des tk-&gt;call=0xE8;//call tk-&gt;offset=OFF(Thunk,code[0])-OFF(Thunk,pf);//des tk-&gt;pf=CFun::funx;//函数地址。 //pop ecx //等价于： //mov ecx,[esp] //sub esp,4 tk-&gt;code[0]=0x59;//pop ecx //mov [esp+4],this tk-&gt;code[1]=0xc7;//mov tk-&gt;code[2]=0x44;//dword ptr //4[esp] tk-&gt;code[3]=0x24;//[esp] tk-&gt;code[4]=0x04;//+4 tk-&gt;ths=this;//修改栈，设置this指针。 //jmp [ecx] tk-&gt;jmp=0xFF;//jmp tk-&gt;ecx=0x21;//[ecx] thunk=(fun)tk; return ; } static void funx(void *pFun,int i) { CFun *pf=(CFun*)pFun; pf-&gt;print(i); } void print(int i ) { cout&lt;&lt;&#34;Recevie=&#34;&lt;&lt;i&lt;&lt;endl; } fun GetThunk() { return thunk; } private: fun thunk; }; int main() { CFun cf; fun pf=cf.
+        </div>
+        <div class="article-readmore"><a href="/posts/thunk/">Read more...</a></div>
+        <div class="article-floatclear"></div>
+      </article>
+      <article class="article">
+        <a href="/posts/unpv2-p25/" class="article-titles">
+          <h2 class="article-title"></h2>
+          
+        </a>
+        <ul class="article-meta">
+          <li class="article-meta-date"><time>January 1, 0001</time></li>
+        </ul>
+        <div class="article-content">
+          <h2 id="toc-false">title: IPC-标识符重用
+category: unpv2
+date: 2017-04-07
+tags: [unpv2,icp]
+toc: false</h2>
+<h5 id="1槽位使用情况序列号">1,槽位使用情况序列号</h5>
+<p>ipc_perm结构中含有一个名为seq的变量，是一个槽位使用情况序列号。该变量是一个由内核为系统中每个潜在的IPC对象维持的计数器。每当删除一个IPC对象时，内核就递增相应槽位的使用情况序列号，若溢出则循环回0.</p>
+<p>简单理解就是: 存在ipc_perm[max]，当创建ipc对象时，在ipc_perm数组中查找第一个ipc_perm元素为空，记为ipc_perm[i].当删除ipc_perm[i]对应的ipc时，ipc_perm[i].seq++,下次再次创建ipc对象时，假设ipc_perm[i]元素为空，则返回ipc id为i+ipc_perm[i].seq*max.
+注：槽位使用情况序列号是一个跨进程保持的内核变量。</p>
+<h4 id="2示例代码">2，示例代码</h4>
+<h5 id="21-创建ipc然后立即删除该ipc">2.1 创建ipc，然后立即删除该ipc</h5>
+<p>对应的源码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/*************************************************************************
+</span></span><span style="display:flex;"><span> &gt; File Name: p26_1.c
+</span></span><span style="display:flex;"><span> &gt; Author: qinchao
+</span></span><span style="display:flex;"><span> &gt; Mail: 1187620726@qq.com
+</span></span><span style="display:flex;"><span> &gt; Created Date:2017-04-07 Time:11:02:25.
+</span></span><span style="display:flex;"><span> ************************************************************************/
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include&lt;stdio.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include&lt;sys/msg.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include&lt;sys/types.h&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>int main<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        int i,msgid;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span><span style="color:#f92672">(</span>i<span style="color:#f92672">=</span>0;i&lt;10;i++<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                msgid<span style="color:#f92672">=</span>msgget<span style="color:#f92672">(</span>IPC_PRIVATE,0666|IPC_CREAT<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>                printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;msgid=%d\n&#34;</span>,msgid<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>                msgctl<span style="color:#f92672">(</span>msgid,IPC_RMID,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>对应的结果：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>bogon:unp qinchao$ gcc p26_1.c  -o p26_1
+</span></span><span style="display:flex;"><span>bogon:unp qinchao$ ./p26_1 
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">196608</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">262144</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">327680</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">393216</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">458752</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">524288</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">589824</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">655360</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">720896</span>
+</span></span><span style="display:flex;"><span>msgid<span style="color:#f92672">=</span><span style="color:#ae81ff">786432</span>
+</span></span><span style="display:flex;"><span>bogon:unp qinchao$ 
+</span></span></code></pre></div><p>即：创建ipc1之后，ipc_perm[0]维护该ipc对象的相关信息，然后删除ipc1，ipc_perm[0].seq++;当创建ipc2时，仍然是ipc_perm[0]维护ipc2相关信息。</p>
+        </div>
+        <div class="article-readmore"><a href="/posts/unpv2-p25/">Read more...</a></div>
+        <div class="article-floatclear"></div>
+      </article>
+      <article class="article">
+        <a href="/posts/xv6/" class="article-titles">
+          <h2 class="article-title"></h2>
+          
+        </a>
+        <ul class="article-meta">
+          <li class="article-meta-date"><time>January 1, 0001</time></li>
+        </ul>
+        <div class="article-content">
+          title: xv6 study category: xv6 date: 2019-03-17 tags: [xv6, linux] toc: false 1. xv6 book 1 chapter1: os interfaces 0, The system call exec replaces the calling process&rsquo;s memory but perserves its file table.
+1, It should be clear why it is a good idea that fork and exec are separate calls. Beacuse if they are separate, the shell can fork a child, use open, close, dup in the child to change the standard input and output file descriptors and then exec.
+        </div>
+        <div class="article-readmore"><a href="/posts/xv6/">Read more...</a></div>
+        <div class="article-floatclear"></div>
+      </article>
+    </section>
+    
+    <ul class="pagination pagination-default">
+      <li class="page-item">
+        <a href="/posts/" aria-label="First" class="page-link" role="button"><span aria-hidden="true">&laquo;&laquo;</span></a>
+      </li>
+      <li class="page-item">
+        <a href="/posts/page/5/" aria-label="Previous" class="page-link" role="button"><span aria-hidden="true">&laquo;</span></a>
+      </li>
+      <li class="page-item">
+        <a href="/posts/page/2/" aria-label="Page 2" class="page-link" role="button">2</a>
+      </li>
+      <li class="page-item">
+        <a href="/posts/page/3/" aria-label="Page 3" class="page-link" role="button">3</a>
+      </li>
+      <li class="page-item">
+        <a href="/posts/page/4/" aria-label="Page 4" class="page-link" role="button">4</a>
+      </li>
+      <li class="page-item">
+        <a href="/posts/page/5/" aria-label="Page 5" class="page-link" role="button">5</a>
+      </li>
+      <li class="page-item active">
+        <a aria-current="page" aria-label="Page 6" class="page-link" role="button">6</a>
+      </li>
+      <li class="page-item disabled">
+        <a aria-disabled="true" aria-label="Next" class="page-link" role="button" tabindex="-1"><span aria-hidden="true">&raquo;</span></a>
+      </li>
+      <li class="page-item disabled">
+        <a aria-disabled="true" aria-label="Last" class="page-link" role="button" tabindex="-1"><span aria-hidden="true">&raquo;&raquo;</span></a>
+      </li>
+    </ul>
+  </div>
+
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-rsslink">
+    </li>
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

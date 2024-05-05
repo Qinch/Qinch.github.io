@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_intset源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,intset,sourcecode]
+toc: false
+comments: true
+1.intset概述
+intset(整数集合)可以用于保存类型为int16_t, int32_t, int64_t的整数值，并且保证intset中不会出现重复元素。
+2.intst结构体
+
+表示intset的结构体定义如下：
+
+typedef struct intset {
+	//intset的编码方式：int*_t
+    uint32_t encoding;
+	//intset中元素的数量
+    uint32_t length;
+	//用于保存元素的数组（0长度数组的妙用）
+    int8_t contents[];
+} intset;
+
+intset对应的图示如下
+
+|----------|
+| encoding |
+|----------|
+|  length  |
+|----------|
+|int*_t v0 |
+|----------|
+|int*_t v1 |
+|----------|
+|int*_t    |
+|vlength-1 |
+|----------|
+">
+  <meta property="og:description" content="title: redis4.0_intset源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,intset,sourcecode]
+toc: false
+comments: true
+1.intset概述
+intset(整数集合)可以用于保存类型为int16_t, int32_t, int64_t的整数值，并且保证intset中不会出现重复元素。
+2.intst结构体
+
+表示intset的结构体定义如下：
+
+typedef struct intset {
+	//intset的编码方式：int*_t
+    uint32_t encoding;
+	//intset中元素的数量
+    uint32_t length;
+	//用于保存元素的数组（0长度数组的妙用）
+    int8_t contents[];
+} intset;
+
+intset对应的图示如下
+
+|----------|
+| encoding |
+|----------|
+|  length  |
+|----------|
+|int*_t v0 |
+|----------|
+|int*_t v1 |
+|----------|
+|int*_t    |
+|vlength-1 |
+|----------|
+">
+  <meta name="twitter:description" content="title: redis4.0_intset源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,intset,sourcecode]
+toc: false
+comments: true
+1.intset概述
+intset(整数集合)可以用于保存类型为int16_t, int32_t, int64_t的整数值，并且保证intset中不会出现重复 …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-intset/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-true">title: redis4.0_intset源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,intset,sourcecode]
+toc: false
+comments: true</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-true">title: redis4.0_intset源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,intset,sourcecode]
+toc: false
+comments: true</h2>
+<h4 id="1intset概述">1.intset概述</h4>
+<p>intset(整数集合)可以用于保存类型为int16_t, int32_t, int64_t的整数值，并且保证intset中不会出现重复元素。</p>
+<h4 id="2intst结构体">2.intst结构体</h4>
+<ul>
+<li>表示intset的结构体定义如下：</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>typedef struct intset <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>	//intset的编码方式：int*_t
+</span></span><span style="display:flex;"><span>    uint32_t encoding;
+</span></span><span style="display:flex;"><span>	//intset中元素的数量
+</span></span><span style="display:flex;"><span>    uint32_t length;
+</span></span><span style="display:flex;"><span>	//用于保存元素的数组（0长度数组的妙用）
+</span></span><span style="display:flex;"><span>    int8_t contents<span style="color:#f92672">[]</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> intset;
+</span></span></code></pre></div><ul>
+<li>intset对应的图示如下</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>|----------|
+</span></span><span style="display:flex;"><span>| encoding |
+</span></span><span style="display:flex;"><span>|----------|
+</span></span><span style="display:flex;"><span>|  length  |
+</span></span><span style="display:flex;"><span>|----------|
+</span></span><span style="display:flex;"><span>|int*_t v0 |
+</span></span><span style="display:flex;"><span>|----------|
+</span></span><span style="display:flex;"><span>|int*_t v1 |
+</span></span><span style="display:flex;"><span>|----------|
+</span></span><span style="display:flex;"><span>|int*_t    |
+</span></span><span style="display:flex;"><span>|vlength-1 |
+</span></span><span style="display:flex;"><span>|----------|
+</span></span></code></pre></div><h4 id="3intset源码">3.intset源码</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/*
+</span></span><span style="display:flex;"><span> * Copyright <span style="color:#f92672">(</span>c<span style="color:#f92672">)</span> 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;
+</span></span><span style="display:flex;"><span> * Copyright <span style="color:#f92672">(</span>c<span style="color:#f92672">)</span> 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;
+</span></span><span style="display:flex;"><span> * All rights reserved.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Redistribution and use in source and binary forms, with or without
+</span></span><span style="display:flex;"><span> * modification, are permitted provided that the following conditions are met:
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> *   * Redistributions of source code must retain the above copyright notice,
+</span></span><span style="display:flex;"><span> *     this list of conditions and the following disclaimer.
+</span></span><span style="display:flex;"><span> *   * Redistributions in binary form must reproduce the above copyright
+</span></span><span style="display:flex;"><span> *     notice, this list of conditions and the following disclaimer in the
+</span></span><span style="display:flex;"><span> *     documentation and/or other materials provided with the distribution.
+</span></span><span style="display:flex;"><span> *   * Neither the name of Redis nor the names of its contributors may be used
+</span></span><span style="display:flex;"><span> *     to endorse or promote products derived from this software without
+</span></span><span style="display:flex;"><span> *     specific prior written permission.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS <span style="color:#e6db74">&#34;AS IS&#34;</span>
+</span></span><span style="display:flex;"><span> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+</span></span><span style="display:flex;"><span> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+</span></span><span style="display:flex;"><span> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+</span></span><span style="display:flex;"><span> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+</span></span><span style="display:flex;"><span> * CONSEQUENTIAL DAMAGES <span style="color:#f92672">(</span>INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+</span></span><span style="display:flex;"><span> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+</span></span><span style="display:flex;"><span> * INTERRUPTION<span style="color:#f92672">)</span> HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+</span></span><span style="display:flex;"><span> * CONTRACT, STRICT LIABILITY, OR TORT <span style="color:#f92672">(</span>INCLUDING NEGLIGENCE OR OTHERWISE<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+</span></span><span style="display:flex;"><span> * POSSIBILITY OF SUCH DAMAGE.
+</span></span><span style="display:flex;"><span> */
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;stdio.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;stdlib.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;string.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;intset.h&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;zmalloc.h&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;endianconv.h&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Note that these encodings are ordered, so:
+</span></span><span style="display:flex;"><span> * INTSET_ENC_INT16 &lt; INTSET_ENC_INT32 &lt; INTSET_ENC_INT64. */
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define INTSET_ENC_INT16 (sizeof(int16_t))</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define INTSET_ENC_INT32 (sizeof(int32_t))</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define INTSET_ENC_INT64 (sizeof(int64_t))</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return the required encoding <span style="color:#66d9ef">for</span> the provided value. */
+</span></span><span style="display:flex;"><span>//获取v对应的encoding
+</span></span><span style="display:flex;"><span>static uint8_t _intsetValueEncoding<span style="color:#f92672">(</span>int64_t v<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>	//INT32_MAX<span style="color:#f92672">=</span>2^31-1  INT_32_MIN<span style="color:#f92672">=</span>-2^31
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; INT32_MIN <span style="color:#f92672">||</span> v &gt; INT32_MAX<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> INTSET_ENC_INT64;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; INT16_MIN <span style="color:#f92672">||</span> v &gt; INT16_MAX<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> INTSET_ENC_INT32;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> INTSET_ENC_INT16;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return the value at pos, given an encoding. */
+</span></span><span style="display:flex;"><span>//返回<span style="color:#f92672">(</span>int*_t<span style="color:#f92672">)</span>is-&gt;content<span style="color:#f92672">[</span>pos<span style="color:#f92672">]</span>的值
+</span></span><span style="display:flex;"><span>static int64_t _intsetGetEncoded<span style="color:#f92672">(</span>intset *is, int pos, uint8_t enc<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int64_t v64;
+</span></span><span style="display:flex;"><span>    int32_t v32;
+</span></span><span style="display:flex;"><span>    int16_t v16;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>enc <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        memcpy<span style="color:#f92672">(</span>&amp;v64,<span style="color:#f92672">((</span>int64_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)</span>+pos,sizeof<span style="color:#f92672">(</span>v64<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        memrev64ifbe<span style="color:#f92672">(</span>&amp;v64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> v64;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>enc <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        memcpy<span style="color:#f92672">(</span>&amp;v32,<span style="color:#f92672">((</span>int32_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)</span>+pos,sizeof<span style="color:#f92672">(</span>v32<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        memrev32ifbe<span style="color:#f92672">(</span>&amp;v32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> v32;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        memcpy<span style="color:#f92672">(</span>&amp;v16,<span style="color:#f92672">((</span>int16_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)</span>+pos,sizeof<span style="color:#f92672">(</span>v16<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        memrev16ifbe<span style="color:#f92672">(</span>&amp;v16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> v16;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return the value at pos, using the configured encoding. */
+</span></span><span style="display:flex;"><span>static int64_t _intsetGet<span style="color:#f92672">(</span>intset *is, int pos<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> _intsetGetEncoded<span style="color:#f92672">(</span>is,pos,intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Set the value at pos, using the configured encoding. */
+</span></span><span style="display:flex;"><span>static void _intsetSet<span style="color:#f92672">(</span>intset *is, int pos, int64_t value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint32_t encoding <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>encoding <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">((</span>int64_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)[</span>pos<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> value;
+</span></span><span style="display:flex;"><span>        memrev64ifbe<span style="color:#f92672">(((</span>int64_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)</span>+pos<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>encoding <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">((</span>int32_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)[</span>pos<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> value;
+</span></span><span style="display:flex;"><span>        memrev32ifbe<span style="color:#f92672">(((</span>int32_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)</span>+pos<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">((</span>int16_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)[</span>pos<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> value;
+</span></span><span style="display:flex;"><span>        memrev16ifbe<span style="color:#f92672">(((</span>int16_t*<span style="color:#f92672">)</span>is-&gt;contents<span style="color:#f92672">)</span>+pos<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Create an empty intset. */
+</span></span><span style="display:flex;"><span>//创建一个空的intset
+</span></span><span style="display:flex;"><span>intset *intsetNew<span style="color:#f92672">(</span>void<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    intset *is <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>intset<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    is-&gt;encoding <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>INTSET_ENC_INT16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    is-&gt;length <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> is;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Resize the intset */
+</span></span><span style="display:flex;"><span>static intset *intsetResize<span style="color:#f92672">(</span>intset *is, uint32_t len<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint32_t size <span style="color:#f92672">=</span> len*intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    is <span style="color:#f92672">=</span> zrealloc<span style="color:#f92672">(</span>is,sizeof<span style="color:#f92672">(</span>intset<span style="color:#f92672">)</span>+size<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> is;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Search <span style="color:#66d9ef">for</span> the position of <span style="color:#e6db74">&#34;value&#34;</span>. Return <span style="color:#ae81ff">1</span> when the value was found and
+</span></span><span style="display:flex;"><span> * sets <span style="color:#e6db74">&#34;pos&#34;</span> to the position of the value within the intset. Return <span style="color:#ae81ff">0</span> when
+</span></span><span style="display:flex;"><span> * the value is not present in the intset and sets <span style="color:#e6db74">&#34;pos&#34;</span> to the position
+</span></span><span style="display:flex;"><span> * where <span style="color:#e6db74">&#34;value&#34;</span> can be inserted. */
+</span></span><span style="display:flex;"><span>//返回值为1：intset中含有该value, *pos为inset content中该value的偏移量
+</span></span><span style="display:flex;"><span>//返回值为0：intset中不含有该value, *pos为inset content中插入该value的偏移量
+</span></span><span style="display:flex;"><span>static uint8_t intsetSearch<span style="color:#f92672">(</span>intset *is, int64_t value, uint32_t *pos<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int min <span style="color:#f92672">=</span> 0, max <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>-1, mid <span style="color:#f92672">=</span> -1;
+</span></span><span style="display:flex;"><span>    int64_t cur <span style="color:#f92672">=</span> -1;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* The value can never be found when the set is empty */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos<span style="color:#f92672">)</span> *pos <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        /* Check <span style="color:#66d9ef">for</span> the <span style="color:#66d9ef">case</span> where we know we cannot find the value,
+</span></span><span style="display:flex;"><span>         * but <span style="color:#66d9ef">do</span> know the insert position. */
+</span></span><span style="display:flex;"><span>		//获得intset最后一个元素的值，如果value大于最后一个元素，则value插入intset末尾
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &gt; _intsetGet<span style="color:#f92672">(</span>is,intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>-1<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos<span style="color:#f92672">)</span> *pos <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &lt; _intsetGet<span style="color:#f92672">(</span>is,0<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos<span style="color:#f92672">)</span> *pos <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	//二分查找
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>max &gt;<span style="color:#f92672">=</span> min<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		//mid<span style="color:#f92672">=((</span>unsigned<span style="color:#f92672">)</span>min + <span style="color:#f92672">(</span>unsigned<span style="color:#f92672">)</span>max<span style="color:#f92672">)</span>/2;
+</span></span><span style="display:flex;"><span>        mid <span style="color:#f92672">=</span> <span style="color:#f92672">((</span>unsigned int<span style="color:#f92672">)</span>min + <span style="color:#f92672">(</span>unsigned int<span style="color:#f92672">)</span>max<span style="color:#f92672">)</span> &gt;&gt; 1;
+</span></span><span style="display:flex;"><span>        cur <span style="color:#f92672">=</span> _intsetGet<span style="color:#f92672">(</span>is,mid<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &gt; cur<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            min <span style="color:#f92672">=</span> mid+1;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &lt; cur<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            max <span style="color:#f92672">=</span> mid-1;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>			//value<span style="color:#f92672">==</span>cur
+</span></span><span style="display:flex;"><span>            break;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value <span style="color:#f92672">==</span> cur<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos<span style="color:#f92672">)</span> *pos <span style="color:#f92672">=</span> mid;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		//待插入元素的位置
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos<span style="color:#f92672">)</span> *pos <span style="color:#f92672">=</span> min;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Upgrades the intset to a larger encoding and inserts the given integer. */
+</span></span><span style="display:flex;"><span>//升级intset的encoding
+</span></span><span style="display:flex;"><span>static intset *intsetUpgradeAndAdd<span style="color:#f92672">(</span>intset *is, int64_t value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint8_t curenc <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    uint8_t newenc <span style="color:#f92672">=</span> _intsetValueEncoding<span style="color:#f92672">(</span>value<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    int length <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>	//如果value&lt;0则prepend
+</span></span><span style="display:flex;"><span>	//如果value&gt;<span style="color:#f92672">=</span>0,则append
+</span></span><span style="display:flex;"><span>    int prepend <span style="color:#f92672">=</span> value &lt; <span style="color:#ae81ff">0</span> ? <span style="color:#ae81ff">1</span> : 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* First set new encoding and resize */
+</span></span><span style="display:flex;"><span>    is-&gt;encoding <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>newenc<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    is <span style="color:#f92672">=</span> intsetResize<span style="color:#f92672">(</span>is,intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>+1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Upgrade back-to-front so we don<span style="color:#e6db74">&#39;t overwrite values.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * Note that the &#34;prepend&#34; variable is used to make sure we have an empty
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * space at either the beginning or the end of the intset. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//根据newenc，将原有intset的所有元素copy到new intset
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    while(length--)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        _intsetSet(is,length+prepend,_intsetGetEncoded(is,length,curenc));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Set the value at the beginning or the end. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (prepend)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        _intsetSet(is,0,value);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    else
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        _intsetSet(is,intrev32ifbe(is-&gt;length),value);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    is-&gt;length = intrev32ifbe(intrev32ifbe(is-&gt;length)+1);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return is;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//将from之后的所有元素移动到to开头的地址
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static void intsetMoveTail(intset *is, uint32_t from, uint32_t to) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    void *src, *dst;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    uint32_t bytes = intrev32ifbe(is-&gt;length)-from;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    uint32_t encoding = intrev32ifbe(is-&gt;encoding);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (encoding == INTSET_ENC_INT64) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        src = (int64_t*)is-&gt;contents+from;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dst = (int64_t*)is-&gt;contents+to;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        bytes *= sizeof(int64_t);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else if (encoding == INTSET_ENC_INT32) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        src = (int32_t*)is-&gt;contents+from;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dst = (int32_t*)is-&gt;contents+to;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        bytes *= sizeof(int32_t);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        src = (int16_t*)is-&gt;contents+from;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dst = (int16_t*)is-&gt;contents+to;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        bytes *= sizeof(int16_t);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    memmove(dst,src,bytes);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Insert an integer in the intset */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">intset *intsetAdd(intset *is, int64_t value, uint8_t *success) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    uint8_t valenc = _intsetValueEncoding(value);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    uint32_t pos;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (success) *success = 1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Upgrade encoding if necessary. If we need to upgrade, we know that
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * this value should be either appended (if &gt; 0) or prepended (if &lt; 0),
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * because it lies outside the range of existing values. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (valenc &gt; intrev32ifbe(is-&gt;encoding)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* This always succeeds, so we don&#39;</span>t need to curry *success. */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> intsetUpgradeAndAdd<span style="color:#f92672">(</span>is,value<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        /* Abort <span style="color:#66d9ef">if</span> the value is already present in the set.
+</span></span><span style="display:flex;"><span>         * This call will populate <span style="color:#e6db74">&#34;pos&#34;</span> with the right position to insert
+</span></span><span style="display:flex;"><span>         * the value when it cannot be found. */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>intsetSearch<span style="color:#f92672">(</span>is,value,&amp;pos<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>			//在intset中查找到value
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>success<span style="color:#f92672">)</span> *success <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> is;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		//intset中没有value，所以在pos位置插入value
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetResize<span style="color:#f92672">(</span>is,intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>+1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>		//将pos处的内存预留给value
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos &lt; intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">))</span> intsetMoveTail<span style="color:#f92672">(</span>is,pos,pos+1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    _intsetSet<span style="color:#f92672">(</span>is,pos,value<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    is-&gt;length <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>+1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> is;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Delete integer from intset */
+</span></span><span style="display:flex;"><span>intset *intsetRemove<span style="color:#f92672">(</span>intset *is, int64_t value, int *success<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint8_t valenc <span style="color:#f92672">=</span> _intsetValueEncoding<span style="color:#f92672">(</span>value<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    uint32_t pos;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>success<span style="color:#f92672">)</span> *success <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>valenc &lt;<span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> intsetSearch<span style="color:#f92672">(</span>is,value,&amp;pos<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        uint32_t len <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* We know we can delete */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>success<span style="color:#f92672">)</span> *success <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* Overwrite value with tail and update length */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos &lt; <span style="color:#f92672">(</span>len-1<span style="color:#f92672">))</span> intsetMoveTail<span style="color:#f92672">(</span>is,pos+1,pos<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetResize<span style="color:#f92672">(</span>is,len-1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is-&gt;length <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>len-1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>	//else value不可能存在于该intset
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> is;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Determine whether a value belongs to this set */
+</span></span><span style="display:flex;"><span>uint8_t intsetFind<span style="color:#f92672">(</span>intset *is, int64_t value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint8_t valenc <span style="color:#f92672">=</span> _intsetValueEncoding<span style="color:#f92672">(</span>value<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> valenc &lt;<span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> intsetSearch<span style="color:#f92672">(</span>is,value,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return random member */
+</span></span><span style="display:flex;"><span>int64_t intsetRandom<span style="color:#f92672">(</span>intset *is<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> _intsetGet<span style="color:#f92672">(</span>is,rand<span style="color:#f92672">()</span>%intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Get the value at the given position. When this position is
+</span></span><span style="display:flex;"><span> * out of range the <span style="color:#66d9ef">function</span> returns 0, when in range it returns 1. */
+</span></span><span style="display:flex;"><span>uint8_t intsetGet<span style="color:#f92672">(</span>intset *is, uint32_t pos, int64_t *value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>pos &lt; intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        *value <span style="color:#f92672">=</span> _intsetGet<span style="color:#f92672">(</span>is,pos<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return intset length */
+</span></span><span style="display:flex;"><span>uint32_t intsetLen<span style="color:#f92672">(</span>const intset *is<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return intset blob size in bytes. */
+</span></span><span style="display:flex;"><span>size_t intsetBlobLen<span style="color:#f92672">(</span>intset *is<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> sizeof<span style="color:#f92672">(</span>intset<span style="color:#f92672">)</span>+intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>*intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#ifdef REDIS_TEST</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;sys/time.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;time.h&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#if 0</span>
+</span></span><span style="display:flex;"><span>static void intsetRepr<span style="color:#f92672">(</span>intset *is<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>uint32_t i <span style="color:#f92672">=</span> 0; i &lt; intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;%lld\n&#34;</span>, <span style="color:#f92672">(</span>uint64_t<span style="color:#f92672">)</span>_intsetGet<span style="color:#f92672">(</span>is,i<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;\n&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>static void error<span style="color:#f92672">(</span>char *err<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;%s\n&#34;</span>, err<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    exit<span style="color:#f92672">(</span>1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#endif</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>static void ok<span style="color:#f92672">(</span>void<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;OK\n&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>static long long usec<span style="color:#f92672">(</span>void<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    struct timeval tv;
+</span></span><span style="display:flex;"><span>    gettimeofday<span style="color:#f92672">(</span>&amp;tv,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#f92672">(((</span>long long<span style="color:#f92672">)</span>tv.tv_sec<span style="color:#f92672">)</span>*1000000<span style="color:#f92672">)</span>+tv.tv_usec;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define assert(_e) ((_e)?(void)0:(_assert(#_e,__FILE__,__LINE__),exit(1)))</span>
+</span></span><span style="display:flex;"><span>static void _assert<span style="color:#f92672">(</span>char *estr, char *file, int line<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;\n\n=== ASSERTION FAILED ===\n&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;==&gt; %s:%d &#39;%s&#39; is not true\n&#34;</span>,file,line,estr<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>static intset *createSet<span style="color:#f92672">(</span>int bits, int size<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint64_t mask <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>1<span style="color:#e6db74">&lt;&lt;bits)-1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    uint64_t value;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    intset *is = intsetNew();
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (int i = 0; i &lt; size; i++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (bits</span> &gt; 32<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            value <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>rand<span style="color:#f92672">()</span>*rand<span style="color:#f92672">())</span> &amp; mask;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            value <span style="color:#f92672">=</span> rand<span style="color:#f92672">()</span> &amp; mask;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,value,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> is;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>static void checkConsistency<span style="color:#f92672">(</span>intset *is<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>uint32_t i <span style="color:#f92672">=</span> 0; i &lt; <span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span>-1<span style="color:#f92672">)</span>; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        uint32_t encoding <span style="color:#f92672">=</span> intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>encoding <span style="color:#f92672">==</span> INTSET_ENC_INT16<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            int16_t *i16 <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>int16_t*<span style="color:#f92672">)</span>is-&gt;contents;
+</span></span><span style="display:flex;"><span>            assert<span style="color:#f92672">(</span>i16<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> &lt; i16<span style="color:#f92672">[</span>i+1<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>encoding <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            int32_t *i32 <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>int32_t*<span style="color:#f92672">)</span>is-&gt;contents;
+</span></span><span style="display:flex;"><span>            assert<span style="color:#f92672">(</span>i32<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> &lt; i32<span style="color:#f92672">[</span>i+1<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            int64_t *i64 <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>int64_t*<span style="color:#f92672">)</span>is-&gt;contents;
+</span></span><span style="display:flex;"><span>            assert<span style="color:#f92672">(</span>i64<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> &lt; i64<span style="color:#f92672">[</span>i+1<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define UNUSED(x) (void)(x)</span>
+</span></span><span style="display:flex;"><span>int intsetTest<span style="color:#f92672">(</span>int argc, char **argv<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint8_t success;
+</span></span><span style="display:flex;"><span>    int i;
+</span></span><span style="display:flex;"><span>    intset *is;
+</span></span><span style="display:flex;"><span>    srand<span style="color:#f92672">(</span>time<span style="color:#f92672">(</span>NULL<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    UNUSED<span style="color:#f92672">(</span>argc<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    UNUSED<span style="color:#f92672">(</span>argv<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Value encodings: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>-32768<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>+32767<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>-32769<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>+32768<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>-2147483648<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>+2147483647<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>-2147483649<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>+2147483648<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>-9223372036854775808ull<span style="color:#f92672">)</span> <span style="color:#f92672">==</span>
+</span></span><span style="display:flex;"><span>                    INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>_intsetValueEncoding<span style="color:#f92672">(</span>+9223372036854775807ull<span style="color:#f92672">)</span> <span style="color:#f92672">==</span>
+</span></span><span style="display:flex;"><span>                    INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        ok<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Basic adding: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,5,&amp;success<span style="color:#f92672">)</span>; assert<span style="color:#f92672">(</span>success<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,6,&amp;success<span style="color:#f92672">)</span>; assert<span style="color:#f92672">(</span>success<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,4,&amp;success<span style="color:#f92672">)</span>; assert<span style="color:#f92672">(</span>success<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,4,&amp;success<span style="color:#f92672">)</span>; assert<span style="color:#f92672">(</span>!success<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        ok<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Large number of random adds: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        uint32_t inserts <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> 0; i &lt; 1024; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,rand<span style="color:#f92672">()</span>%0x800,&amp;success<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>success<span style="color:#f92672">)</span> inserts++;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;length<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> inserts<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        ok<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Upgrade from int16 to int32: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,32,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,65535,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,32<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,65535<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,32,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,-65535,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,32<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,-65535<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        ok<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Upgrade from int16 to int64: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,32,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,4294967295,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,32<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,4294967295<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,32,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT16<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,-4294967295,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,32<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,-4294967295<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        ok<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Upgrade from int32 to int64: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,65535,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,4294967295,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,65535<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,4294967295<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,65535,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT32<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,-4294967295,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intrev32ifbe<span style="color:#f92672">(</span>is-&gt;encoding<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> INTSET_ENC_INT64<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,65535<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,-4294967295<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        ok<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Stress lookups: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        long num <span style="color:#f92672">=</span> 100000, size <span style="color:#f92672">=</span> 10000;
+</span></span><span style="display:flex;"><span>        int i, bits <span style="color:#f92672">=</span> 20;
+</span></span><span style="display:flex;"><span>        long long start;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> createSet<span style="color:#f92672">(</span>bits,size<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        start <span style="color:#f92672">=</span> usec<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> 0; i &lt; num; i++<span style="color:#f92672">)</span> intsetSearch<span style="color:#f92672">(</span>is,rand<span style="color:#f92672">()</span> % <span style="color:#f92672">((</span>1&lt;&lt;bits<span style="color:#f92672">)</span>-1<span style="color:#f92672">)</span>,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;%ld lookups, %ld element set, %lldusec\n&#34;</span>,
+</span></span><span style="display:flex;"><span>               num,size,usec<span style="color:#f92672">()</span>-start<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    printf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Stress add+delete: &#34;</span><span style="color:#f92672">)</span>; <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        int i, v1, v2;
+</span></span><span style="display:flex;"><span>        is <span style="color:#f92672">=</span> intsetNew<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> 0; i &lt; 0xffff; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            v1 <span style="color:#f92672">=</span> rand<span style="color:#f92672">()</span> % 0xfff;
+</span></span><span style="display:flex;"><span>            is <span style="color:#f92672">=</span> intsetAdd<span style="color:#f92672">(</span>is,v1,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            assert<span style="color:#f92672">(</span>intsetFind<span style="color:#f92672">(</span>is,v1<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            v2 <span style="color:#f92672">=</span> rand<span style="color:#f92672">()</span> % 0xfff;
+</span></span><span style="display:flex;"><span>            is <span style="color:#f92672">=</span> intsetRemove<span style="color:#f92672">(</span>is,v2,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            assert<span style="color:#f92672">(</span>!intsetFind<span style="color:#f92672">(</span>is,v2<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        checkConsistency<span style="color:#f92672">(</span>is<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        ok<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#endif</span>
+</span></span></code></pre></div><h4 id="4参考文献">4.参考文献</h4>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/redis4-event/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-io/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

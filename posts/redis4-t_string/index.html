@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_t_string源码剖析
+category: redis
+date: 2017-12-3
+tags: [redis4.0,t_string,sourcecode]
+toc: false
+comments: false
+1.字符串对象介绍
+
+
+encoding为REDIS_ENCODING_INT
+
+
+字符串的内容为“123456”，对应的redisObject内存布局如下：
+
+
+
+encoding为REDIS_ENCODING_EMBSTR内存布局
+
+
+
+encoding为REDIS_ENCODING_RAW内存布局
+
+
+">
+  <meta property="og:description" content="title: redis4.0_t_string源码剖析
+category: redis
+date: 2017-12-3
+tags: [redis4.0,t_string,sourcecode]
+toc: false
+comments: false
+1.字符串对象介绍
+
+
+encoding为REDIS_ENCODING_INT
+
+
+字符串的内容为“123456”，对应的redisObject内存布局如下：
+
+
+
+encoding为REDIS_ENCODING_EMBSTR内存布局
+
+
+
+encoding为REDIS_ENCODING_RAW内存布局
+
+
+">
+  <meta name="twitter:description" content="title: redis4.0_t_string源码剖析
+category: redis
+date: 2017-12-3
+tags: [redis4.0,t_string,sourcecode]
+toc: false
+comments: false
+1.字符串对象介绍
+
+
+encoding为REDIS_ENCODING_INT
+
+
+字符串的内容为“123456”，对应的redisObject内存布 …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-t_string/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-false">title: redis4.0_t_string源码剖析
+category: redis
+date: 2017-12-3
+tags: [redis4.0,t_string,sourcecode]
+toc: false
+comments: false</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-false">title: redis4.0_t_string源码剖析
+category: redis
+date: 2017-12-3
+tags: [redis4.0,t_string,sourcecode]
+toc: false
+comments: false</h2>
+<h4 id="1字符串对象介绍">1.字符串对象介绍</h4>
+<ul>
+<li>
+<p>encoding为REDIS_ENCODING_INT</p>
+</li>
+<li>
+<p>字符串的内容为“123456”，对应的redisObject内存布局如下：
+<img src="/img/t_string_int.png" alt="encoding_int"></p>
+</li>
+<li>
+<p>encoding为REDIS_ENCODING_EMBSTR内存布局
+<img src="/img/t_string_embstr.png" alt="encoding_embstr"></p>
+</li>
+<li>
+<p>encoding为REDIS_ENCODING_RAW内存布局
+<img src="/img/t_string_raw.png" alt="encoding_raw"></p>
+</li>
+</ul>
+<h4 id="2t_stringc源码分析">2.t_string.c源码分析</h4>
+<ul>
+<li>set命令解析</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>void setGenericCommand<span style="color:#f92672">(</span>client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    long long milliseconds <span style="color:#f92672">=</span> 0; /* initialized to avoid any harmness warning */
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>expire<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		//获取EX/PX后边参数的值
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>getLongLongFromObjectOrReply<span style="color:#f92672">(</span>c, expire, &amp;milliseconds, NULL<span style="color:#f92672">)</span> !<span style="color:#f92672">=</span> C_OK<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>milliseconds &lt;<span style="color:#f92672">=</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            addReplyErrorFormat<span style="color:#f92672">(</span>c,<span style="color:#e6db74">&#34;invalid expire time in %s&#34;</span>,c-&gt;cmd-&gt;name<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>unit <span style="color:#f92672">==</span> UNIT_SECONDS<span style="color:#f92672">)</span> milliseconds *<span style="color:#f92672">=</span> 1000;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>flags &amp; OBJ_SET_NX <span style="color:#f92672">&amp;&amp;</span> lookupKeyWrite<span style="color:#f92672">(</span>c-&gt;db,key<span style="color:#f92672">)</span> !<span style="color:#f92672">=</span> NULL<span style="color:#f92672">)</span> <span style="color:#f92672">||</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">(</span>flags &amp; OBJ_SET_XX <span style="color:#f92672">&amp;&amp;</span> lookupKeyWrite<span style="color:#f92672">(</span>c-&gt;db,key<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> NULL<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        addReply<span style="color:#f92672">(</span>c, abort_reply ? abort_reply : shared.nullbulk<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    setKey<span style="color:#f92672">(</span>c-&gt;db,key,val<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    server.dirty++;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>expire<span style="color:#f92672">)</span> setExpire<span style="color:#f92672">(</span>c,c-&gt;db,key,mstime<span style="color:#f92672">()</span>+milliseconds<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    notifyKeyspaceEvent<span style="color:#f92672">(</span>NOTIFY_STRING,<span style="color:#e6db74">&#34;set&#34;</span>,key,c-&gt;db-&gt;id<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>expire<span style="color:#f92672">)</span> notifyKeyspaceEvent<span style="color:#f92672">(</span>NOTIFY_GENERIC,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;expire&#34;</span>,key,c-&gt;db-&gt;id<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c, ok_reply ? ok_reply : shared.ok<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* SET key value <span style="color:#f92672">[</span>NX<span style="color:#f92672">]</span> <span style="color:#f92672">[</span>XX<span style="color:#f92672">]</span> <span style="color:#f92672">[</span>EX &lt;seconds&gt;<span style="color:#f92672">]</span> <span style="color:#f92672">[</span>PX &lt;milliseconds&gt;<span style="color:#f92672">]</span> */
+</span></span><span style="display:flex;"><span>void setCommand<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int j;
+</span></span><span style="display:flex;"><span>    robj *expire <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    int unit <span style="color:#f92672">=</span> UNIT_SECONDS;
+</span></span><span style="display:flex;"><span>    int flags <span style="color:#f92672">=</span> OBJ_SET_NO_FLAGS;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 3; j &lt; c-&gt;argc; j++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        char *a <span style="color:#f92672">=</span> c-&gt;argv<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>-&gt;ptr;
+</span></span><span style="display:flex;"><span>	//当解析参数为EX或者PX时，用于获取参数的值
+</span></span><span style="display:flex;"><span>        robj *next <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">==</span> c-&gt;argc-1<span style="color:#f92672">)</span> ? NULL : c-&gt;argv<span style="color:#f92672">[</span>j+1<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	//NX<span style="color:#f92672">(</span>NX与XX不能并存<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;n&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;N&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">(</span>a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;x&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;X&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> a<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;\0&#39;</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>            !<span style="color:#f92672">(</span>flags &amp; OBJ_SET_XX<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            flags |<span style="color:#f92672">=</span> OBJ_SET_NX;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;x&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;X&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                   <span style="color:#f92672">(</span>a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;x&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;X&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> a<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;\0&#39;</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                   !<span style="color:#f92672">(</span>flags &amp; OBJ_SET_NX<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            flags |<span style="color:#f92672">=</span> OBJ_SET_XX;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;e&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;E&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                   <span style="color:#f92672">(</span>a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;x&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;X&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> a<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;\0&#39;</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                   !<span style="color:#f92672">(</span>flags &amp; OBJ_SET_PX<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> next<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>	    //EX与PX不能并存
+</span></span><span style="display:flex;"><span>            flags |<span style="color:#f92672">=</span> OBJ_SET_EX;
+</span></span><span style="display:flex;"><span>            unit <span style="color:#f92672">=</span> UNIT_SECONDS;
+</span></span><span style="display:flex;"><span>            expire <span style="color:#f92672">=</span> next;
+</span></span><span style="display:flex;"><span>            j++;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;p&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;P&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                   <span style="color:#f92672">(</span>a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;x&#39;</span> <span style="color:#f92672">||</span> a<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;X&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> a<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;\0&#39;</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                   !<span style="color:#f92672">(</span>flags &amp; OBJ_SET_EX<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> next<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            flags |<span style="color:#f92672">=</span> OBJ_SET_PX;
+</span></span><span style="display:flex;"><span>            unit <span style="color:#f92672">=</span> UNIT_MILLISECONDS;
+</span></span><span style="display:flex;"><span>            expire <span style="color:#f92672">=</span> next;
+</span></span><span style="display:flex;"><span>            j++;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            addReply<span style="color:#f92672">(</span>c,shared.syntaxerr<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    //try to save value<span style="color:#f92672">(</span>argv<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span>-&gt;ptr<span style="color:#f92672">)</span>中的space
+</span></span><span style="display:flex;"><span>    c-&gt;argv<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> tryObjectEncoding<span style="color:#f92672">(</span>c-&gt;argv<span style="color:#f92672">[</span>2<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>    setGenericCommand<span style="color:#f92672">(</span>c,flags,c-&gt;argv<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>,c-&gt;argv<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span>,expire,unit,NULL,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Try to encode a string object in order to save space */
+</span></span><span style="display:flex;"><span>robj *tryObjectEncoding<span style="color:#f92672">(</span>robj *o<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    long value;
+</span></span><span style="display:flex;"><span>    sds s <span style="color:#f92672">=</span> o-&gt;ptr;
+</span></span><span style="display:flex;"><span>    size_t len;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Make sure this is a string object, the only type we encode
+</span></span><span style="display:flex;"><span>     * in this <span style="color:#66d9ef">function</span>. Other types use encoded memory efficient
+</span></span><span style="display:flex;"><span>     * representations but are handled by the commands implementing
+</span></span><span style="display:flex;"><span>     * the type. */
+</span></span><span style="display:flex;"><span>    serverAssertWithInfo<span style="color:#f92672">(</span>NULL,o,o-&gt;type <span style="color:#f92672">==</span> OBJ_STRING<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* We try some specialized encoding only <span style="color:#66d9ef">for</span> objects that are
+</span></span><span style="display:flex;"><span>     * RAW or EMBSTR encoded, in other words objects that are still
+</span></span><span style="display:flex;"><span>     * in represented by an actually array of chars. */
+</span></span><span style="display:flex;"><span>	//sds or embstr
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!sdsEncodedObject<span style="color:#f92672">(</span>o<span style="color:#f92672">))</span> <span style="color:#66d9ef">return</span> o;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* It<span style="color:#e6db74">&#39;s not safe to encode shared objects: shared objects can be shared
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * everywhere in the &#34;object space&#34; of Redis and may end in places where
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * they are not handled. We handle them only as values in the keyspace. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     if (o-&gt;refcount &gt; 1) return o;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Check if we can represent this string as a long integer.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * Note that we are sure that a string larger than 20 chars is not
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * representable as a 32 nor 64 bit integer. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    len = sdslen(s);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (len &lt;= 20 &amp;&amp; string2l(s,len,&amp;value)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* This object is encodable as a long. Try to use a shared object.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * Note that we avoid using shared integers when maxmemory is used
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * because every object needs to have a private LRU field for the LRU
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * algorithm to work well. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if ((server.maxmemory == 0 ||
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            !(server.maxmemory_policy &amp; MAXMEMORY_FLAG_NO_SHARED_INTEGERS)) &amp;&amp;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            value &gt;= 0 &amp;&amp;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            value &lt; OBJ_SHARED_INTEGERS)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">			//0~10000共享对象
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            decrRefCount(o);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            incrRefCount(shared.integers[value]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            return shared.integers[value];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">			//ptr=(void*)value
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (o-&gt;encoding == OBJ_ENCODING_RAW) sdsfree(o-&gt;ptr);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            o-&gt;encoding = OBJ_ENCODING_INT;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            o-&gt;ptr = (void*) value;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            return o;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* If the string is small and is still RAW encoded,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * try the EMBSTR encoding which is more efficient.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * In this representation the object and the SDS string are allocated
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * in the same chunk of memory to save space and cache misses. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (len &lt;= OBJ_ENCODING_EMBSTR_SIZE_LIMIT) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        robj *emb;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (o-&gt;encoding == OBJ_ENCODING_EMBSTR) return o;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        emb = createEmbeddedStringObject(s,sdslen(s));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        decrRefCount(o);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return emb;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* We can&#39;</span>t encode the object...
+</span></span><span style="display:flex;"><span>     *
+</span></span><span style="display:flex;"><span>     * Do the last try, and at least optimize the SDS string inside
+</span></span><span style="display:flex;"><span>     * the string object to require little space, in <span style="color:#66d9ef">case</span> there
+</span></span><span style="display:flex;"><span>     * is more than 10% of free space at the end of the SDS string.
+</span></span><span style="display:flex;"><span>     *
+</span></span><span style="display:flex;"><span>     * We <span style="color:#66d9ef">do</span> that only <span style="color:#66d9ef">for</span> relatively large strings as this branch
+</span></span><span style="display:flex;"><span>     * is only entered <span style="color:#66d9ef">if</span> the length of the string is greater than
+</span></span><span style="display:flex;"><span>     * OBJ_ENCODING_EMBSTR_SIZE_LIMIT. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>o-&gt;encoding <span style="color:#f92672">==</span> OBJ_ENCODING_RAW <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>        sdsavail<span style="color:#f92672">(</span>s<span style="color:#f92672">)</span> &gt; len/10<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        o-&gt;ptr <span style="color:#f92672">=</span> sdsRemoveFreeSpace<span style="color:#f92672">(</span>o-&gt;ptr<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="3参考文献">3.参考文献</h4>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/makefile/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-ziplist/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

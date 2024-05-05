@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_Transactions源码剖析
+category: redis
+date: 2017-12-11
+tags: [redis4.0,multi,Transations,sourcecode]
+toc: false
+comments: false
+1.Transactions
+
+
+MULTI, EXEC, DISCARD and WATCH are the foundation of transactions in Redis. They allow the execution of a group of commands in a single step, with two important guarantees:
+
+
+All the commands in a transaction are serialized and executed sequentially. It can never happen that a request issued by another client is served in the middle of the execution of a Redis transaction. This guarantees that the commands are executed as a single isolated operation(隔离性).
+
+
+Either all of the commands or none are processed, so a Redis transaction is also atomic(原子性).
+
+
+WATCH命令
+
+
+在对应的db结构体中用dict保存WATCHed keys,其中dict的entry的key为WATCHed key robj,value为一个链表，链表的每个Node指向一个Client的指针（表示该client WATCHed该key）
+
+
+在每个client结构体中用链表保存了该客户端WATCHed的key的robj，和该key对应的db指针
+
+">
+  <meta property="og:description" content="title: redis4.0_Transactions源码剖析
+category: redis
+date: 2017-12-11
+tags: [redis4.0,multi,Transations,sourcecode]
+toc: false
+comments: false
+1.Transactions
+
+
+MULTI, EXEC, DISCARD and WATCH are the foundation of transactions in Redis. They allow the execution of a group of commands in a single step, with two important guarantees:
+
+
+All the commands in a transaction are serialized and executed sequentially. It can never happen that a request issued by another client is served in the middle of the execution of a Redis transaction. This guarantees that the commands are executed as a single isolated operation(隔离性).
+
+
+Either all of the commands or none are processed, so a Redis transaction is also atomic(原子性).
+
+
+WATCH命令
+
+
+在对应的db结构体中用dict保存WATCHed keys,其中dict的entry的key为WATCHed key robj,value为一个链表，链表的每个Node指向一个Client的指针（表示该client WATCHed该key）
+
+
+在每个client结构体中用链表保存了该客户端WATCHed的key的robj，和该key对应的db指针
+
+">
+  <meta name="twitter:description" content="title: redis4.0_Transactions源码剖析
+category: redis
+date: 2017-12-11
+tags: [redis4.0,multi,Transations,sourcecode]
+toc: false
+comments: false
+1.Transactions
+
+
+MULTI, EXEC, DISCARD and WATCH are the …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-multi/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-false">title: redis4.0_Transactions源码剖析
+category: redis
+date: 2017-12-11
+tags: [redis4.0,multi,Transations,sourcecode]
+toc: false
+comments: false</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-false">title: redis4.0_Transactions源码剖析
+category: redis
+date: 2017-12-11
+tags: [redis4.0,multi,Transations,sourcecode]
+toc: false
+comments: false</h2>
+<h4 id="1transactions">1.Transactions</h4>
+<ul>
+<li>
+<p>MULTI, EXEC, DISCARD and WATCH are the foundation of transactions in Redis. They allow the execution of a group of commands in a single step, with two important guarantees:</p>
+</li>
+<li>
+<p>All the commands in a transaction are serialized and executed sequentially. It can never happen that a request issued by another client is served in the middle of the execution of a Redis transaction. This guarantees that the commands are executed as a single isolated operation(隔离性).</p>
+</li>
+<li>
+<p>Either all of the commands or none are processed, so a Redis transaction is also atomic(原子性).</p>
+</li>
+<li>
+<p>WATCH命令</p>
+</li>
+<li>
+<p>在对应的db结构体中用dict保存WATCHed keys,其中dict的entry的key为WATCHed key robj,value为一个链表，链表的每个Node指向一个Client的指针（表示该client WATCHed该key）</p>
+</li>
+<li>
+<p>在每个client结构体中用链表保存了该客户端WATCHed的key的robj，和该key对应的db指针</p>
+</li>
+</ul>
+<h4 id="2transactions源码">2.Transactions源码</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* <span style="color:#f92672">================================</span> MULTI/EXEC <span style="color:#f92672">==============================</span> */
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Client state initialization <span style="color:#66d9ef">for</span> MULTI/EXEC */
+</span></span><span style="display:flex;"><span>//初始化事务的命令队列
+</span></span><span style="display:flex;"><span>void initClientMultiState<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    c-&gt;mstate.commands <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    c-&gt;mstate.count <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Release all the resources associated with MULTI/EXEC state */
+</span></span><span style="display:flex;"><span>void freeClientMultiState<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int j;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 0; j &lt; c-&gt;mstate.count; j++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        int i;
+</span></span><span style="display:flex;"><span>        multiCmd *mc <span style="color:#f92672">=</span> c-&gt;mstate.commands+j;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> 0; i &lt; mc-&gt;argc; i++<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            decrRefCount<span style="color:#f92672">(</span>mc-&gt;argv<span style="color:#f92672">[</span>i<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>        zfree<span style="color:#f92672">(</span>mc-&gt;argv<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>c-&gt;mstate.commands<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Add a new command into the MULTI commands queue */
+</span></span><span style="display:flex;"><span>//将一个命令加入事物队列<span style="color:#f92672">(</span>数组<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>void queueMultiCommand<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    multiCmd *mc;
+</span></span><span style="display:flex;"><span>    int j;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    c-&gt;mstate.commands <span style="color:#f92672">=</span> zrealloc<span style="color:#f92672">(</span>c-&gt;mstate.commands,
+</span></span><span style="display:flex;"><span>            sizeof<span style="color:#f92672">(</span>multiCmd<span style="color:#f92672">)</span>*<span style="color:#f92672">(</span>c-&gt;mstate.count+1<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    mc <span style="color:#f92672">=</span> c-&gt;mstate.commands+c-&gt;mstate.count;
+</span></span><span style="display:flex;"><span>    mc-&gt;cmd <span style="color:#f92672">=</span> c-&gt;cmd;
+</span></span><span style="display:flex;"><span>    mc-&gt;argc <span style="color:#f92672">=</span> c-&gt;argc;
+</span></span><span style="display:flex;"><span>    mc-&gt;argv <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>robj*<span style="color:#f92672">)</span>*c-&gt;argc<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    memcpy<span style="color:#f92672">(</span>mc-&gt;argv,c-&gt;argv,sizeof<span style="color:#f92672">(</span>robj*<span style="color:#f92672">)</span>*c-&gt;argc<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>	//对应的robj引用计数+1
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 0; j &lt; c-&gt;argc; j++<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        incrRefCount<span style="color:#f92672">(</span>mc-&gt;argv<span style="color:#f92672">[</span>j<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>    c-&gt;mstate.count++;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//discard事务状态
+</span></span><span style="display:flex;"><span>void discardTransaction<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>	//释放c指向的客户端的事物状态
+</span></span><span style="display:flex;"><span>    freeClientMultiState<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    initClientMultiState<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    c-&gt;flags &amp;<span style="color:#f92672">=</span> ~<span style="color:#f92672">(</span>CLIENT_MULTI|CLIENT_DIRTY_CAS|CLIENT_DIRTY_EXEC<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>	//把该客户端关注的key从dict删除
+</span></span><span style="display:flex;"><span>    unwatchAllKeys<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Flag the transacation as DIRTY_EXEC so that EXEC will fail.
+</span></span><span style="display:flex;"><span> * Should be called every time there is an error <span style="color:#66d9ef">while</span> queueing a command. */
+</span></span><span style="display:flex;"><span>//判断事物的状态，避免递归调用MULTI命令
+</span></span><span style="display:flex;"><span>void flagTransaction<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>c-&gt;flags &amp; CLIENT_MULTI<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        c-&gt;flags |<span style="color:#f92672">=</span> CLIENT_DIRTY_EXEC;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//标记客户端处于事务状态
+</span></span><span style="display:flex;"><span>void multiCommand<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>c-&gt;flags &amp; CLIENT_MULTI<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        addReplyError<span style="color:#f92672">(</span>c,<span style="color:#e6db74">&#34;MULTI calls can not be nested&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>	//表示客户端从非事物状态切换到事物状态
+</span></span><span style="display:flex;"><span>    c-&gt;flags |<span style="color:#f92672">=</span> CLIENT_MULTI;
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.ok<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//discard<span style="color:#f92672">(</span>移除<span style="color:#f92672">)</span>事物
+</span></span><span style="display:flex;"><span>void discardCommand<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!<span style="color:#f92672">(</span>c-&gt;flags &amp; CLIENT_MULTI<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        addReplyError<span style="color:#f92672">(</span>c,<span style="color:#e6db74">&#34;DISCARD without MULTI&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    discardTransaction<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.ok<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Send a MULTI command to all the slaves and AOF file. Check the execCommand
+</span></span><span style="display:flex;"><span> * implementation <span style="color:#66d9ef">for</span> more information. */
+</span></span><span style="display:flex;"><span>void execCommandPropagateMulti<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    robj *multistring <span style="color:#f92672">=</span> createStringObject<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MULTI&#34;</span>,5<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    propagate<span style="color:#f92672">(</span>server.multiCommand,c-&gt;db-&gt;id,&amp;multistring,1,
+</span></span><span style="display:flex;"><span>              PROPAGATE_AOF|PROPAGATE_REPL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    decrRefCount<span style="color:#f92672">(</span>multistring<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//执行事务
+</span></span><span style="display:flex;"><span>void execCommand<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int j;
+</span></span><span style="display:flex;"><span>    robj **orig_argv;
+</span></span><span style="display:flex;"><span>    int orig_argc;
+</span></span><span style="display:flex;"><span>    struct redisCommand *orig_cmd;
+</span></span><span style="display:flex;"><span>    int must_propagate <span style="color:#f92672">=</span> 0; /* Need to propagate MULTI/EXEC to AOF / slaves? */
+</span></span><span style="display:flex;"><span>    int was_master <span style="color:#f92672">=</span> server.masterhost <span style="color:#f92672">==</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	//client在非事务状态
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!<span style="color:#f92672">(</span>c-&gt;flags &amp; CLIENT_MULTI<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        addReplyError<span style="color:#f92672">(</span>c,<span style="color:#e6db74">&#34;EXEC without MULTI&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Check <span style="color:#66d9ef">if</span> we need to abort the EXEC because:
+</span></span><span style="display:flex;"><span>     * 1<span style="color:#f92672">)</span> Some WATCHed key was touched<span style="color:#f92672">(</span>watched key 被修改<span style="color:#f92672">)</span>.
+</span></span><span style="display:flex;"><span>     * 2<span style="color:#f92672">)</span> There was a previous error <span style="color:#66d9ef">while</span> queueing commands<span style="color:#f92672">(</span>入队错误<span style="color:#f92672">)</span>.
+</span></span><span style="display:flex;"><span>     * A failed EXEC in the first <span style="color:#66d9ef">case</span> returns a multi bulk nil object
+</span></span><span style="display:flex;"><span>     * <span style="color:#f92672">(</span>technically it is not an error but a special behavior<span style="color:#f92672">)</span>, <span style="color:#66d9ef">while</span>
+</span></span><span style="display:flex;"><span>     * in the second an EXECABORT error is returned. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>c-&gt;flags &amp; <span style="color:#f92672">(</span>CLIENT_DIRTY_CAS|CLIENT_DIRTY_EXEC<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        addReply<span style="color:#f92672">(</span>c, c-&gt;flags &amp; CLIENT_DIRTY_EXEC ? shared.execaborterr :
+</span></span><span style="display:flex;"><span>                                                  shared.nullmultibulk<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>		//拒绝执行这个事务
+</span></span><span style="display:flex;"><span>        discardTransaction<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        goto handle_monitor;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Exec all the queued commands */
+</span></span><span style="display:flex;"><span>	//ASAP is As Soon As Possible
+</span></span><span style="display:flex;"><span>	//此时开始执行入队的命令，所以WATCHed key都清除
+</span></span><span style="display:flex;"><span>    unwatchAllKeys<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>; /* Unwatch ASAP otherwise we<span style="color:#e6db74">&#39;ll waste CPU cycles */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    orig_argv = c-&gt;argv;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    orig_argc = c-&gt;argc;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    orig_cmd = c-&gt;cmd;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    addReplyMultiBulkLen(c,c-&gt;mstate.count);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (j = 0; j &lt; c-&gt;mstate.count; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        c-&gt;argc = c-&gt;mstate.commands[j].argc;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        c-&gt;argv = c-&gt;mstate.commands[j].argv;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        c-&gt;cmd = c-&gt;mstate.commands[j].cmd;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Propagate a MULTI request once we encounter the first command which
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * is not readonly nor an administrative one.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * This way we&#39;</span>ll deliver the MULTI/..../EXEC block as a whole and
+</span></span><span style="display:flex;"><span>         * both the AOF and the replication link will have the same consistency
+</span></span><span style="display:flex;"><span>         * and atomicity guarantees. */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!must_propagate <span style="color:#f92672">&amp;&amp;</span> !<span style="color:#f92672">(</span>c-&gt;cmd-&gt;flags &amp; <span style="color:#f92672">(</span>CMD_READONLY|CMD_ADMIN<span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            execCommandPropagateMulti<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            must_propagate <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		//执行事务中的命令
+</span></span><span style="display:flex;"><span>        call<span style="color:#f92672">(</span>c,CMD_CALL_FULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* Commands may alter argc/argv, restore mstate. */
+</span></span><span style="display:flex;"><span>        c-&gt;mstate.commands<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>.argc <span style="color:#f92672">=</span> c-&gt;argc;
+</span></span><span style="display:flex;"><span>        c-&gt;mstate.commands<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>.argv <span style="color:#f92672">=</span> c-&gt;argv;
+</span></span><span style="display:flex;"><span>        c-&gt;mstate.commands<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>.cmd <span style="color:#f92672">=</span> c-&gt;cmd;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    c-&gt;argv <span style="color:#f92672">=</span> orig_argv;
+</span></span><span style="display:flex;"><span>    c-&gt;argc <span style="color:#f92672">=</span> orig_argc;
+</span></span><span style="display:flex;"><span>    c-&gt;cmd <span style="color:#f92672">=</span> orig_cmd;
+</span></span><span style="display:flex;"><span>    discardTransaction<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Make sure the EXEC command will be propagated as well <span style="color:#66d9ef">if</span> MULTI
+</span></span><span style="display:flex;"><span>     * was already propagated. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>must_propagate<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        int is_master <span style="color:#f92672">=</span> server.masterhost <span style="color:#f92672">==</span> NULL;
+</span></span><span style="display:flex;"><span>        server.dirty++;
+</span></span><span style="display:flex;"><span>        /* If inside the MULTI/EXEC block this instance was suddenly
+</span></span><span style="display:flex;"><span>         * switched from master to slave <span style="color:#f92672">(</span>using the SLAVEOF command<span style="color:#f92672">)</span>, the
+</span></span><span style="display:flex;"><span>         * initial MULTI was propagated into the replication backlog, but the
+</span></span><span style="display:flex;"><span>         * rest was not. We need to make sure to at least terminate the
+</span></span><span style="display:flex;"><span>         * backlog with the final EXEC. */
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>server.repl_backlog <span style="color:#f92672">&amp;&amp;</span> was_master <span style="color:#f92672">&amp;&amp;</span> !is_master<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            char *execcmd <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;*1\r\n</span>$4<span style="color:#e6db74">\r\nEXEC\r\n&#34;</span>;
+</span></span><span style="display:flex;"><span>            feedReplicationBacklog<span style="color:#f92672">(</span>execcmd,strlen<span style="color:#f92672">(</span>execcmd<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>handle_monitor:
+</span></span><span style="display:flex;"><span>    /* Send EXEC to clients waiting data from MONITOR. We <span style="color:#66d9ef">do</span> it here
+</span></span><span style="display:flex;"><span>     * since the natural order of commands execution is actually:
+</span></span><span style="display:flex;"><span>     * MUTLI, EXEC, ... commands inside transaction ...
+</span></span><span style="display:flex;"><span>     * Instead EXEC is flagged as CMD_SKIP_MONITOR in the command
+</span></span><span style="display:flex;"><span>     * table, and we <span style="color:#66d9ef">do</span> it here with correct ordering. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>listLength<span style="color:#f92672">(</span>server.monitors<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> !server.loading<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        replicationFeedMonitors<span style="color:#f92672">(</span>c,server.monitors,c-&gt;db-&gt;id,c-&gt;argv,c-&gt;argc<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* <span style="color:#f92672">=====================</span> WATCH <span style="color:#f92672">(</span>CAS alike <span style="color:#66d9ef">for</span> MULTI/EXEC<span style="color:#f92672">)</span> <span style="color:#f92672">===================</span>
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * The implementation uses a per-DB hash table mapping keys to list of clients
+</span></span><span style="display:flex;"><span> * WATCHing those keys, so that given a key that is going to be modified
+</span></span><span style="display:flex;"><span> * we can mark all the associated clients as dirty.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Also every client contains a list of WATCHed keys so that<span style="color:#e6db74">&#39;s possible to
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * un-watch such keys when the client is freed or when UNWATCH is called. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* In the client-&gt;watched_keys list we need to use watchedKey structures
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * as in order to identify a key in Redis we need both the key name and the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * DB */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">typedef struct watchedKey {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    robj *key;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    redisDb *db;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">} watchedKey;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Watch for the specified key */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void watchForKey(client *c, robj *key) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list *clients = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listIter li;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *ln;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    watchedKey *wk;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Check if we are already watching for this key */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listRewind(c-&gt;watched_keys,&amp;li);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    while((ln = listNext(&amp;li))) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        wk = listNodeValue(ln);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (wk-&gt;db == c-&gt;db &amp;&amp; equalStringObjects(key,wk-&gt;key))
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            return; /* Key already watched */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* This key is not already watched in this DB. Let&#39;</span>s add it */
+</span></span><span style="display:flex;"><span>    clients <span style="color:#f92672">=</span> dictFetchValue<span style="color:#f92672">(</span>c-&gt;db-&gt;watched_keys,key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>	//在dict中创建该entry
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!clients<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        clients <span style="color:#f92672">=</span> listCreate<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>        dictAdd<span style="color:#f92672">(</span>c-&gt;db-&gt;watched_keys,key,clients<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        incrRefCount<span style="color:#f92672">(</span>key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>	//添加到value对应的链表的尾节点
+</span></span><span style="display:flex;"><span>    listAddNodeTail<span style="color:#f92672">(</span>clients,c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    /* Add the new key to the list of keys watched by this client */
+</span></span><span style="display:flex;"><span>    wk <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*wk<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    wk-&gt;key <span style="color:#f92672">=</span> key;
+</span></span><span style="display:flex;"><span>    wk-&gt;db <span style="color:#f92672">=</span> c-&gt;db;
+</span></span><span style="display:flex;"><span>    incrRefCount<span style="color:#f92672">(</span>key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>	//添加到客户端的链表中
+</span></span><span style="display:flex;"><span>    listAddNodeTail<span style="color:#f92672">(</span>c-&gt;watched_keys,wk<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Unwatch all the keys watched by this client. To clean the EXEC dirty
+</span></span><span style="display:flex;"><span> * flag is up to the caller. */
+</span></span><span style="display:flex;"><span>//c的watched_keys链表的每个Node指向一个watchedKey
+</span></span><span style="display:flex;"><span>void unwatchAllKeys<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    listIter li;
+</span></span><span style="display:flex;"><span>    listNode *ln;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	//当前客户端watched_keys链表为空
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>listLength<span style="color:#f92672">(</span>c-&gt;watched_keys<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    listRewind<span style="color:#f92672">(</span>c-&gt;watched_keys,&amp;li<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">((</span>ln <span style="color:#f92672">=</span> listNext<span style="color:#f92672">(</span>&amp;li<span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        list *clients;
+</span></span><span style="display:flex;"><span>        watchedKey *wk;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* Lookup the watched key -&gt; clients list and remove the client
+</span></span><span style="display:flex;"><span>         * from the list */
+</span></span><span style="display:flex;"><span>        wk <span style="color:#f92672">=</span> listNodeValue<span style="color:#f92672">(</span>ln<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>		//dict中key对应的value为一个链表,链表的每个元素为c
+</span></span><span style="display:flex;"><span>        clients <span style="color:#f92672">=</span> dictFetchValue<span style="color:#f92672">(</span>wk-&gt;db-&gt;watched_keys, wk-&gt;key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        serverAssertWithInfo<span style="color:#f92672">(</span>c,NULL,clients !<span style="color:#f92672">=</span> NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>		//删除watched_keys<span style="color:#f92672">(</span>dict<span style="color:#f92672">)</span>的value中的client节点
+</span></span><span style="display:flex;"><span>        listDelNode<span style="color:#f92672">(</span>clients,listSearchKey<span style="color:#f92672">(</span>clients,c<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        /* Kill the entry at all <span style="color:#66d9ef">if</span> this was the only client */
+</span></span><span style="display:flex;"><span>		//如果该value为空（链表长度为0），则从dict删除该entry
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>listLength<span style="color:#f92672">(</span>clients<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            dictDelete<span style="color:#f92672">(</span>wk-&gt;db-&gt;watched_keys, wk-&gt;key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        /* Remove this watched key from the client-&gt;watched list */
+</span></span><span style="display:flex;"><span>		//从客户端的链表中删除该key
+</span></span><span style="display:flex;"><span>        listDelNode<span style="color:#f92672">(</span>c-&gt;watched_keys,ln<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        decrRefCount<span style="color:#f92672">(</span>wk-&gt;key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        zfree<span style="color:#f92672">(</span>wk<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* <span style="color:#e6db74">&#34;Touch&#34;</span> a key, so that <span style="color:#66d9ef">if</span> this key is being WATCHed by some client the
+</span></span><span style="display:flex;"><span> * next EXEC will fail. */
+</span></span><span style="display:flex;"><span>//标记所有WATCHed这个key的客户端为dirty
+</span></span><span style="display:flex;"><span>void touchWatchedKey<span style="color:#f92672">(</span>redisDb *db, robj *key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    list *clients;
+</span></span><span style="display:flex;"><span>    listIter li;
+</span></span><span style="display:flex;"><span>    listNode *ln;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictSize<span style="color:#f92672">(</span>db-&gt;watched_keys<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    clients <span style="color:#f92672">=</span> dictFetchValue<span style="color:#f92672">(</span>db-&gt;watched_keys, key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!clients<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Mark all the clients watching this key as CLIENT_DIRTY_CAS */
+</span></span><span style="display:flex;"><span>    /* Check <span style="color:#66d9ef">if</span> we are already watching <span style="color:#66d9ef">for</span> this key */
+</span></span><span style="display:flex;"><span>    listRewind<span style="color:#f92672">(</span>clients,&amp;li<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">((</span>ln <span style="color:#f92672">=</span> listNext<span style="color:#f92672">(</span>&amp;li<span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        client *c <span style="color:#f92672">=</span> listNodeValue<span style="color:#f92672">(</span>ln<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        c-&gt;flags |<span style="color:#f92672">=</span> CLIENT_DIRTY_CAS;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* On FLUSHDB or FLUSHALL all the watched keys that are present before the
+</span></span><span style="display:flex;"><span> * flush but will be deleted as effect of the flushing operation should
+</span></span><span style="display:flex;"><span> * be touched. <span style="color:#e6db74">&#34;dbid&#34;</span> is the DB that<span style="color:#960050;background-color:#1e0010">&#39;</span>s getting the flush. -1 <span style="color:#66d9ef">if</span> it is
+</span></span><span style="display:flex;"><span> * a FLUSHALL operation <span style="color:#f92672">(</span>all the DBs flushed<span style="color:#f92672">)</span>. */
+</span></span><span style="display:flex;"><span>void touchWatchedKeysOnFlush<span style="color:#f92672">(</span>int dbid<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    listIter li1, li2;
+</span></span><span style="display:flex;"><span>    listNode *ln;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* For every client, check all the waited keys */
+</span></span><span style="display:flex;"><span>    listRewind<span style="color:#f92672">(</span>server.clients,&amp;li1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">((</span>ln <span style="color:#f92672">=</span> listNext<span style="color:#f92672">(</span>&amp;li1<span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        client *c <span style="color:#f92672">=</span> listNodeValue<span style="color:#f92672">(</span>ln<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        listRewind<span style="color:#f92672">(</span>c-&gt;watched_keys,&amp;li2<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span><span style="color:#f92672">((</span>ln <span style="color:#f92672">=</span> listNext<span style="color:#f92672">(</span>&amp;li2<span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            watchedKey *wk <span style="color:#f92672">=</span> listNodeValue<span style="color:#f92672">(</span>ln<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            /* For every watched key matching the specified DB, <span style="color:#66d9ef">if</span> the
+</span></span><span style="display:flex;"><span>             * key exists, mark the client as dirty, as the key will be
+</span></span><span style="display:flex;"><span>             * removed. */
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dbid <span style="color:#f92672">==</span> -1 <span style="color:#f92672">||</span> wk-&gt;db-&gt;id <span style="color:#f92672">==</span> dbid<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictFind<span style="color:#f92672">(</span>wk-&gt;db-&gt;dict, wk-&gt;key-&gt;ptr<span style="color:#f92672">)</span> !<span style="color:#f92672">=</span> NULL<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                    c-&gt;flags |<span style="color:#f92672">=</span> CLIENT_DIRTY_CAS;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>void watchCommand<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int j;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	//不能在MULTI（客户端处于事务状态）执行WATCH命令
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>c-&gt;flags &amp; CLIENT_MULTI<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        addReplyError<span style="color:#f92672">(</span>c,<span style="color:#e6db74">&#34;WATCH inside MULTI is not allowed&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 1; j &lt; c-&gt;argc; j++<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        watchForKey<span style="color:#f92672">(</span>c,c-&gt;argv<span style="color:#f92672">[</span>j<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.ok<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>void unwatchCommand<span style="color:#f92672">(</span>client *c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    unwatchAllKeys<span style="color:#f92672">(</span>c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    c-&gt;flags &amp;<span style="color:#f92672">=</span> <span style="color:#f92672">(</span>~CLIENT_DIRTY_CAS<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.ok<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="3参考文献">3.参考文献</h4>
+<p><a href="https://redis.io/topics/transactions">redis.io</a>
+<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a></p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/redis4-io/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-object/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: MFC thunk技术模拟 category: Asm/Cpp date: 2013-4-3 tags: [Asm, MFC, thunk] toc: false comments: false &#43;&#43;&#43; author = &ldquo;allencqin&rdquo; title = &ldquo;IPC-标识符重用&rdquo; date = &ldquo;2017-04-07&rdquo; description = &ldquo;Sample article showcasing basic Markdown syntax and formatting for HTML elements.&rdquo; categories = [ &ldquo;unpv2&rdquo;, ] &#43;&#43;&#43;
+//参考http://www.cnblogs.com/satng/archive/2010/12/30/2138833.html
+#include&lt;iostream&gt; using namespace std; //thunk技术模拟 typedef void (*fun)(void *,int i); class CFun;//类声明。 #pragma pack(push) #pragma pack(1) typedef struct Thunk{ unsigned char call; int offset; fun pf;//函数指针。 unsigned char code[5]; CFun *ths;//this指针。 unsigned char jmp; unsigned char ecx; }Thunk; #pragma pack(pop) #define OFF(s,m) ((unsigned int)&amp;((s*)0)-&gt;m)//求结构体的偏移量，s为结构体的类型，m为结构体的数据成员。 class CFun{ public: CFun() { createThunk(); } ~CFun() { delete thunk; } public: void createThunk() { Thunk* tk=new Thunk; //call des tk-&gt;call=0xE8;//call tk-&gt;offset=OFF(Thunk,code[0])-OFF(Thunk,pf);//des tk-&gt;pf=CFun::funx;//函数地址。 //pop ecx //等价于： //mov ecx,[esp] //sub esp,4 tk-&gt;code[0]=0x59;//pop ecx //mov [esp&#43;4],this tk-&gt;code[1]=0xc7;//mov tk-&gt;code[2]=0x44;//dword ptr //4[esp] tk-&gt;code[3]=0x24;//[esp] tk-&gt;code[4]=0x04;//&#43;4 tk-&gt;ths=this;//修改栈，设置this指针。 //jmp [ecx] tk-&gt;jmp=0xFF;//jmp tk-&gt;ecx=0x21;//[ecx] thunk=(fun)tk; return ; } static void funx(void *pFun,int i) { CFun *pf=(CFun*)pFun; pf-&gt;print(i); } void print(int i ) { cout&lt;&lt;&#34;Recevie=&#34;&lt;&lt;i&lt;&lt;endl; } fun GetThunk() { return thunk; } private: fun thunk; }; int main() { CFun cf; fun pf=cf.">
+  <meta property="og:description" content="title: MFC thunk技术模拟 category: Asm/Cpp date: 2013-4-3 tags: [Asm, MFC, thunk] toc: false comments: false &#43;&#43;&#43; author = &ldquo;allencqin&rdquo; title = &ldquo;IPC-标识符重用&rdquo; date = &ldquo;2017-04-07&rdquo; description = &ldquo;Sample article showcasing basic Markdown syntax and formatting for HTML elements.&rdquo; categories = [ &ldquo;unpv2&rdquo;, ] &#43;&#43;&#43;
+//参考http://www.cnblogs.com/satng/archive/2010/12/30/2138833.html
+#include&lt;iostream&gt; using namespace std; //thunk技术模拟 typedef void (*fun)(void *,int i); class CFun;//类声明。 #pragma pack(push) #pragma pack(1) typedef struct Thunk{ unsigned char call; int offset; fun pf;//函数指针。 unsigned char code[5]; CFun *ths;//this指针。 unsigned char jmp; unsigned char ecx; }Thunk; #pragma pack(pop) #define OFF(s,m) ((unsigned int)&amp;((s*)0)-&gt;m)//求结构体的偏移量，s为结构体的类型，m为结构体的数据成员。 class CFun{ public: CFun() { createThunk(); } ~CFun() { delete thunk; } public: void createThunk() { Thunk* tk=new Thunk; //call des tk-&gt;call=0xE8;//call tk-&gt;offset=OFF(Thunk,code[0])-OFF(Thunk,pf);//des tk-&gt;pf=CFun::funx;//函数地址。 //pop ecx //等价于： //mov ecx,[esp] //sub esp,4 tk-&gt;code[0]=0x59;//pop ecx //mov [esp&#43;4],this tk-&gt;code[1]=0xc7;//mov tk-&gt;code[2]=0x44;//dword ptr //4[esp] tk-&gt;code[3]=0x24;//[esp] tk-&gt;code[4]=0x04;//&#43;4 tk-&gt;ths=this;//修改栈，设置this指针。 //jmp [ecx] tk-&gt;jmp=0xFF;//jmp tk-&gt;ecx=0x21;//[ecx] thunk=(fun)tk; return ; } static void funx(void *pFun,int i) { CFun *pf=(CFun*)pFun; pf-&gt;print(i); } void print(int i ) { cout&lt;&lt;&#34;Recevie=&#34;&lt;&lt;i&lt;&lt;endl; } fun GetThunk() { return thunk; } private: fun thunk; }; int main() { CFun cf; fun pf=cf.">
+  <meta name="twitter:description" content="title: MFC thunk技术模拟 category: Asm/Cpp date: 2013-4-3 tags: [Asm, MFC, thunk] toc: false comments: false &#43;&#43;&#43; author = &ldquo;allencqin&rdquo; title = &ldquo;IPC-标识符重用&rdquo; date = …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/thunk/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+      <h2 id="comments-false">title: MFC thunk技术模拟
+category: Asm/Cpp
+date: 2013-4-3
+tags: [Asm, MFC, thunk]
+toc: false
+comments: false</h2>
+<p>+++
+author = &ldquo;allencqin&rdquo;
+title = &ldquo;IPC-标识符重用&rdquo;
+date = &ldquo;2017-04-07&rdquo;
+description = &ldquo;Sample article showcasing basic Markdown syntax and formatting for HTML elements.&rdquo;
+categories = [
+&ldquo;unpv2&rdquo;,
+]
++++</p>
+<p>//参考http://www.cnblogs.com/satng/archive/2010/12/30/2138833.html</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#include&lt;iostream&gt;</span>
+</span></span><span style="display:flex;"><span>using namespace std;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//thunk技术模拟
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>typedef void <span style="color:#f92672">(</span>*fun<span style="color:#f92672">)(</span>void *,int i<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>class CFun;//类声明。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#pragma pack(push)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#pragma pack(1)</span>
+</span></span><span style="display:flex;"><span>typedef struct Thunk<span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    unsigned char call;
+</span></span><span style="display:flex;"><span>    int offset;
+</span></span><span style="display:flex;"><span>    fun pf;//函数指针。
+</span></span><span style="display:flex;"><span>    unsigned char code<span style="color:#f92672">[</span>5<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    CFun *ths;//this指针。
+</span></span><span style="display:flex;"><span>    unsigned char jmp;
+</span></span><span style="display:flex;"><span>    unsigned char ecx;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>Thunk;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#pragma pack(pop)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define OFF(s,m) ((unsigned int)&amp;((s*)0)-&gt;m)//求结构体的偏移量，s为结构体的类型，m为结构体的数据成员。</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>class CFun<span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>public:
+</span></span><span style="display:flex;"><span>    CFun<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        createThunk<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    ~CFun<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        delete thunk;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>public:
+</span></span><span style="display:flex;"><span>    void createThunk<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Thunk* tk<span style="color:#f92672">=</span>new Thunk;
+</span></span><span style="display:flex;"><span>        //call des
+</span></span><span style="display:flex;"><span>        tk-&gt;call<span style="color:#f92672">=</span>0xE8;//call
+</span></span><span style="display:flex;"><span>        tk-&gt;offset<span style="color:#f92672">=</span>OFF<span style="color:#f92672">(</span>Thunk,code<span style="color:#f92672">[</span>0<span style="color:#f92672">])</span>-OFF<span style="color:#f92672">(</span>Thunk,pf<span style="color:#f92672">)</span>;//des
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        tk-&gt;pf<span style="color:#f92672">=</span>CFun::funx;//函数地址。
+</span></span><span style="display:flex;"><span>        //pop ecx
+</span></span><span style="display:flex;"><span>        //等价于：
+</span></span><span style="display:flex;"><span>        //mov ecx,<span style="color:#f92672">[</span>esp<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        //sub esp,4
+</span></span><span style="display:flex;"><span>        tk-&gt;code<span style="color:#f92672">[</span>0<span style="color:#f92672">]=</span>0x59;//pop ecx
+</span></span><span style="display:flex;"><span>        //mov <span style="color:#f92672">[</span>esp+4<span style="color:#f92672">]</span>,this
+</span></span><span style="display:flex;"><span>        tk-&gt;code<span style="color:#f92672">[</span>1<span style="color:#f92672">]=</span>0xc7;//mov
+</span></span><span style="display:flex;"><span>        tk-&gt;code<span style="color:#f92672">[</span>2<span style="color:#f92672">]=</span>0x44;//dword ptr
+</span></span><span style="display:flex;"><span>        //4<span style="color:#f92672">[</span>esp<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        tk-&gt;code<span style="color:#f92672">[</span>3<span style="color:#f92672">]=</span>0x24;//<span style="color:#f92672">[</span>esp<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        tk-&gt;code<span style="color:#f92672">[</span>4<span style="color:#f92672">]=</span>0x04;//+4
+</span></span><span style="display:flex;"><span>        tk-&gt;ths<span style="color:#f92672">=</span>this;//修改栈，设置this指针。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        //jmp <span style="color:#f92672">[</span>ecx<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        tk-&gt;jmp<span style="color:#f92672">=</span>0xFF;//jmp
+</span></span><span style="display:flex;"><span>        tk-&gt;ecx<span style="color:#f92672">=</span>0x21;//<span style="color:#f92672">[</span>ecx<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        thunk<span style="color:#f92672">=(</span>fun<span style="color:#f92672">)</span>tk;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> ;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    static void funx<span style="color:#f92672">(</span>void *pFun,int i<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        CFun *pf<span style="color:#f92672">=(</span>CFun*<span style="color:#f92672">)</span>pFun;
+</span></span><span style="display:flex;"><span>        pf-&gt;print<span style="color:#f92672">(</span>i<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    void print<span style="color:#f92672">(</span>int i <span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        cout&lt;&lt;<span style="color:#e6db74">&#34;Recevie=&#34;</span><span style="color:#e6db74">&lt;&lt;i&lt;&lt;endl;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    fun GetThunk()
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return thunk;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">pri</span>vate:
+</span></span><span style="display:flex;"><span>    fun thunk;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>int main<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    CFun cf;
+</span></span><span style="display:flex;"><span>    fun pf<span style="color:#f92672">=</span>cf.GetThunk<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    pf<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Hello&#34;</span>,123<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/thread_signal/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/bits-int/" data-toggle="tooltip" data-placement="top" title="24 bits解析为有符号整数">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

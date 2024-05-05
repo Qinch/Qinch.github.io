@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: category: snippet date: tags: [snippet] toc: false comments: false &#43;&#43;&#43; author = &ldquo;allencqin&rdquo; title = &ldquo;Round up to the next highest power of 2&rdquo; date = &ldquo;2017-04-07&rdquo; description = &ldquo;Sample article showcasing basic Markdown syntax and formatting for HTML elements.&rdquo; categories = [ &ldquo;unpv2&rdquo;, ] &#43;&#43;&#43;
+version1 static unsigned int power2gt(unsigned int size) { while (1) { if (i &gt;= size) return i; i *= 2; } } version2 static unsigned int power2gt(unsigned int size) { --size; size |= size &gt;&gt; 1; size |= size &gt;&gt; 2; size |= size &gt;&gt; 4; size |= size &gt;&gt; 8; size |= size &gt;&gt; 16; return size &#43; 1; } 参考资料 the explanation of version2:here Reidis#issue4776 ">
+  <meta property="og:description" content="title: category: snippet date: tags: [snippet] toc: false comments: false &#43;&#43;&#43; author = &ldquo;allencqin&rdquo; title = &ldquo;Round up to the next highest power of 2&rdquo; date = &ldquo;2017-04-07&rdquo; description = &ldquo;Sample article showcasing basic Markdown syntax and formatting for HTML elements.&rdquo; categories = [ &ldquo;unpv2&rdquo;, ] &#43;&#43;&#43;
+version1 static unsigned int power2gt(unsigned int size) { while (1) { if (i &gt;= size) return i; i *= 2; } } version2 static unsigned int power2gt(unsigned int size) { --size; size |= size &gt;&gt; 1; size |= size &gt;&gt; 2; size |= size &gt;&gt; 4; size |= size &gt;&gt; 8; size |= size &gt;&gt; 16; return size &#43; 1; } 参考资料 the explanation of version2:here Reidis#issue4776 ">
+  <meta name="twitter:description" content="title: category: snippet date: tags: [snippet] toc: false comments: false &#43;&#43;&#43; author = &ldquo;allencqin&rdquo; title = &ldquo;Round up to the next highest power of 2&rdquo; date = …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/snippet-pow2/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+      <h2 id="comments-false">title:
+category: snippet
+date:
+tags: [snippet]
+toc: false
+comments: false</h2>
+<p>+++
+author = &ldquo;allencqin&rdquo;
+title = &ldquo;Round up to the next highest power of 2&rdquo;
+date = &ldquo;2017-04-07&rdquo;
+description = &ldquo;Sample article showcasing basic Markdown syntax and formatting for HTML elements.&rdquo;
+categories = [
+&ldquo;unpv2&rdquo;,
+]
++++</p>
+<h4 id="version1">version1</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>static unsigned int power2gt<span style="color:#f92672">(</span>unsigned int size<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>1<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>i &gt;<span style="color:#f92672">=</span> size<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> i;
+</span></span><span style="display:flex;"><span>    i *<span style="color:#f92672">=</span> 2;
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="version2">version2</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>static unsigned int power2gt<span style="color:#f92672">(</span>unsigned int size<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    --size;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 1;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 2;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 4;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 8;
+</span></span><span style="display:flex;"><span>    size |<span style="color:#f92672">=</span> size &gt;&gt; 16;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> size + 1;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="参考资料">参考资料</h4>
+<ol>
+<li>the explanation of version2:<a href="http://bits.stephan-brumme.com/roundUpToNextPowerOfTwo.html">here</a></li>
+<li><a href="https://github.com/antirez/redis/issues/4776">Reidis#issue4776</a></li>
+</ol>
+
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/snippet-atoi/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/bits-int/" data-toggle="tooltip" data-placement="top" title="24 bits解析为有符号整数">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

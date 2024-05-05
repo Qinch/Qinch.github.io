@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_adlist源码剖析
+category: redis
+date: 2017-12-2
+tags: [redis4.0,adlist,sourcecode]
+toc: false
+comments: true
+1.adlist介绍
+adlist：双向非循环链表，如图:
+
+2.adlist.h源码分析
+/* Node, List, and Iterator are the only data structures used currently. */
+//链表Node,双向非循环链表
+typedef struct listNode {
+    struct listNode *prev;
+    struct listNode *next;
+    void *value;
+} listNode;
+
+//迭代器
+typedef struct listIter {
+    listNode *next;
+    int direction;
+} listIter;
+
+typedef struct list {
+	//指向list中第一个listnode节点
+    listNode *head;
+	//指向list中最后一个listnode节点
+    listNode *tail;
+    void *(*dup)(void *ptr);
+    void (*free)(void *ptr);//用于释放Node中value字段
+    int (*match)(void *ptr, void *key);
+    unsigned long len;//链表的长度
+} list;
+">
+  <meta property="og:description" content="title: redis4.0_adlist源码剖析
+category: redis
+date: 2017-12-2
+tags: [redis4.0,adlist,sourcecode]
+toc: false
+comments: true
+1.adlist介绍
+adlist：双向非循环链表，如图:
+
+2.adlist.h源码分析
+/* Node, List, and Iterator are the only data structures used currently. */
+//链表Node,双向非循环链表
+typedef struct listNode {
+    struct listNode *prev;
+    struct listNode *next;
+    void *value;
+} listNode;
+
+//迭代器
+typedef struct listIter {
+    listNode *next;
+    int direction;
+} listIter;
+
+typedef struct list {
+	//指向list中第一个listnode节点
+    listNode *head;
+	//指向list中最后一个listnode节点
+    listNode *tail;
+    void *(*dup)(void *ptr);
+    void (*free)(void *ptr);//用于释放Node中value字段
+    int (*match)(void *ptr, void *key);
+    unsigned long len;//链表的长度
+} list;
+">
+  <meta name="twitter:description" content="title: redis4.0_adlist源码剖析
+category: redis
+date: 2017-12-2
+tags: [redis4.0,adlist,sourcecode]
+toc: false
+comments: true
+1.adlist介绍
+adlist：双向非循环链表，如图:
+
+2.adlist.h源码分析
+/* Node, List, and Iterator are …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-adlist/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-true">title: redis4.0_adlist源码剖析
+category: redis
+date: 2017-12-2
+tags: [redis4.0,adlist,sourcecode]
+toc: false
+comments: true</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-true">title: redis4.0_adlist源码剖析
+category: redis
+date: 2017-12-2
+tags: [redis4.0,adlist,sourcecode]
+toc: false
+comments: true</h2>
+<h4 id="1adlist介绍">1.adlist介绍</h4>
+<p>adlist：双向非循环链表，如图:
+<img src="/img/adlist.png" alt="adlist"></p>
+<h4 id="2adlisth源码分析">2.adlist.h源码分析</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Node, List, and Iterator are the only data structures used currently. */
+</span></span><span style="display:flex;"><span>//链表Node,双向非循环链表
+</span></span><span style="display:flex;"><span>typedef struct listNode <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    struct listNode *prev;
+</span></span><span style="display:flex;"><span>    struct listNode *next;
+</span></span><span style="display:flex;"><span>    void *value;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> listNode;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//迭代器
+</span></span><span style="display:flex;"><span>typedef struct listIter <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    listNode *next;
+</span></span><span style="display:flex;"><span>    int direction;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> listIter;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>typedef struct list <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>	//指向list中第一个listnode节点
+</span></span><span style="display:flex;"><span>    listNode *head;
+</span></span><span style="display:flex;"><span>	//指向list中最后一个listnode节点
+</span></span><span style="display:flex;"><span>    listNode *tail;
+</span></span><span style="display:flex;"><span>    void *<span style="color:#f92672">(</span>*dup<span style="color:#f92672">)(</span>void *ptr<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    void <span style="color:#f92672">(</span>*free<span style="color:#f92672">)(</span>void *ptr<span style="color:#f92672">)</span>;//用于释放Node中value字段
+</span></span><span style="display:flex;"><span>    int <span style="color:#f92672">(</span>*match<span style="color:#f92672">)(</span>void *ptr, void *key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    unsigned long len;//链表的长度
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> list;
+</span></span></code></pre></div><h4 id="3addlistc源码分析">3.addlist.c.源码分析</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* adlist.c - A generic doubly linked list implementation
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Copyright <span style="color:#f92672">(</span>c<span style="color:#f92672">)</span> 2006-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;
+</span></span><span style="display:flex;"><span> * All rights reserved.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Redistribution and use in source and binary forms, with or without
+</span></span><span style="display:flex;"><span> * modification, are permitted provided that the following conditions are met:
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> *   * Redistributions of source code must retain the above copyright notice,
+</span></span><span style="display:flex;"><span> *     this list of conditions and the following disclaimer.
+</span></span><span style="display:flex;"><span> *   * Redistributions in binary form must reproduce the above copyright
+</span></span><span style="display:flex;"><span> *     notice, this list of conditions and the following disclaimer in the
+</span></span><span style="display:flex;"><span> *     documentation and/or other materials provided with the distribution.
+</span></span><span style="display:flex;"><span> *   * Neither the name of Redis nor the names of its contributors may be used
+</span></span><span style="display:flex;"><span> *     to endorse or promote products derived from this software without
+</span></span><span style="display:flex;"><span> *     specific prior written permission.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS <span style="color:#e6db74">&#34;AS IS&#34;</span>
+</span></span><span style="display:flex;"><span> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+</span></span><span style="display:flex;"><span> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+</span></span><span style="display:flex;"><span> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+</span></span><span style="display:flex;"><span> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+</span></span><span style="display:flex;"><span> * CONSEQUENTIAL DAMAGES <span style="color:#f92672">(</span>INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+</span></span><span style="display:flex;"><span> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+</span></span><span style="display:flex;"><span> * INTERRUPTION<span style="color:#f92672">)</span> HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+</span></span><span style="display:flex;"><span> * CONTRACT, STRICT LIABILITY, OR TORT <span style="color:#f92672">(</span>INCLUDING NEGLIGENCE OR OTHERWISE<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+</span></span><span style="display:flex;"><span> * POSSIBILITY OF SUCH DAMAGE.
+</span></span><span style="display:flex;"><span> */
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;stdlib.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;adlist.h&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;zmalloc.h&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Create a new list. The created list can be freed with
+</span></span><span style="display:flex;"><span> * AlFreeList<span style="color:#f92672">()</span>, but private value of every node need to be freed
+</span></span><span style="display:flex;"><span> * by the user before to call AlFreeList<span style="color:#f92672">()</span>.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * On error, NULL is returned. Otherwise the pointer to the new list. */
+</span></span><span style="display:flex;"><span>//创建listhead节点
+</span></span><span style="display:flex;"><span>list *listCreate<span style="color:#f92672">(</span>void<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    struct list *list;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>list <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*list<span style="color:#f92672">)))</span> <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>    list-&gt;head <span style="color:#f92672">=</span> list-&gt;tail <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	//list中节点的数量
+</span></span><span style="display:flex;"><span>    list-&gt;len <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    list-&gt;dup <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    list-&gt;free <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    list-&gt;match <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> list;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Remove all the elements from the list without destroying the list itself. */
+</span></span><span style="display:flex;"><span>//删除list中所有的list节点，保留listhead节点
+</span></span><span style="display:flex;"><span>void listEmpty<span style="color:#f92672">(</span>list *list<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    unsigned long len;
+</span></span><span style="display:flex;"><span>    listNode *current, *next;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    current <span style="color:#f92672">=</span> list-&gt;head;
+</span></span><span style="display:flex;"><span>    len <span style="color:#f92672">=</span> list-&gt;len;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>len--<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        next <span style="color:#f92672">=</span> current-&gt;next;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>list-&gt;free<span style="color:#f92672">)</span> list-&gt;free<span style="color:#f92672">(</span>current-&gt;value<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        zfree<span style="color:#f92672">(</span>current<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        current <span style="color:#f92672">=</span> next;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    list-&gt;head <span style="color:#f92672">=</span> list-&gt;tail <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    list-&gt;len <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Free the whole list.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * This <span style="color:#66d9ef">function</span> can<span style="color:#e6db74">&#39;t fail. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//释放list，包括listhead和所有listnode
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void listRelease(list *list)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listEmpty(list);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    zfree(list);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Add a new node to the list, to head, containing the specified &#39;</span>value<span style="color:#e6db74">&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * pointer as value.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * On error, NULL is returned and no operation is performed (i.e. the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * list remains unaltered).
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * On success the &#39;</span>list<span style="color:#e6db74">&#39; pointer you pass to the function is returned. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">list *listAddNodeHead(list *list, void *value)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if ((node = zmalloc(sizeof(*node))) == NULL)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    node-&gt;value = value;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (list-&gt;len == 0) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">		//list中只有listhead，没有listnode情况
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;head = list-&gt;tail = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev = node-&gt;next = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;next = list-&gt;head;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;head-&gt;prev = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;head = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;len++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return list;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Add a new node to the list, to tail, containing the specified &#39;</span>value<span style="color:#e6db74">&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * pointer as value.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * On error, NULL is returned and no operation is performed (i.e. the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * list remains unaltered).
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * On success the &#39;</span>list<span style="color:#e6db74">&#39; pointer you pass to the function is returned. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">list *listAddNodeTail(list *list, void *value)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if ((node = zmalloc(sizeof(*node))) == NULL)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    node-&gt;value = value;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (list-&gt;len == 0) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;head = list-&gt;tail = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev = node-&gt;next = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev = list-&gt;tail;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;next = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;tail-&gt;next = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;tail = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;len++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return list;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if ((node = zmalloc(sizeof(*node))) == NULL)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    node-&gt;value = value;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (after) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">		//在old_node指向的节点后边插入node节点
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev = old_node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;next = old_node-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">		//如果old_node指向的节点是list中尾节点，则更新list-&gt;tail
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (list-&gt;tail == old_node) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            list-&gt;tail = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;next = old_node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev = old_node-&gt;prev;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (list-&gt;head == old_node) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            list-&gt;head = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (node-&gt;prev != NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev-&gt;next = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (node-&gt;next != NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;next-&gt;prev = node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;len++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return list;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Remove the specified node from the specified list.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * It&#39;</span>s up to the caller to free the private value of the node.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * This <span style="color:#66d9ef">function</span> can<span style="color:#e6db74">&#39;t fail. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//删除list中node指向的节点
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void listDelNode(list *list, listNode *node)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (node-&gt;prev)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;prev-&gt;next = node-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    else
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;head = node-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (node-&gt;next)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        node-&gt;next-&gt;prev = node-&gt;prev;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    else
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        list-&gt;tail = node-&gt;prev;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (list-&gt;free) list-&gt;free(node-&gt;value);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    zfree(node);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;len--;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Returns a list iterator &#39;</span>iter<span style="color:#e6db74">&#39;. After the initialization every
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * call to listNext() will return the next element of the list.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * This function can&#39;</span>t fail. */
+</span></span><span style="display:flex;"><span>listIter *listGetIterator<span style="color:#f92672">(</span>list *list, int direction<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    listIter *iter;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>iter <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*iter<span style="color:#f92672">)))</span> <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>direction <span style="color:#f92672">==</span> AL_START_HEAD<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        iter-&gt;next <span style="color:#f92672">=</span> list-&gt;head;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>        iter-&gt;next <span style="color:#f92672">=</span> list-&gt;tail;
+</span></span><span style="display:flex;"><span>    iter-&gt;direction <span style="color:#f92672">=</span> direction;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> iter;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Release the iterator memory */
+</span></span><span style="display:flex;"><span>void listReleaseIterator<span style="color:#f92672">(</span>listIter *iter<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>iter<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Create an iterator in the list private iterator structure */
+</span></span><span style="display:flex;"><span>void listRewind<span style="color:#f92672">(</span>list *list, listIter *li<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    li-&gt;next <span style="color:#f92672">=</span> list-&gt;head;
+</span></span><span style="display:flex;"><span>    li-&gt;direction <span style="color:#f92672">=</span> AL_START_HEAD;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>void listRewindTail<span style="color:#f92672">(</span>list *list, listIter *li<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    li-&gt;next <span style="color:#f92672">=</span> list-&gt;tail;
+</span></span><span style="display:flex;"><span>    li-&gt;direction <span style="color:#f92672">=</span> AL_START_TAIL;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return the next element of an iterator.
+</span></span><span style="display:flex;"><span> * It<span style="color:#e6db74">&#39;s valid to remove the currently returned element using
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * listDelNode(), but not to remove other elements.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * The function returns a pointer to the next element of the list,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * or NULL if there are no more elements, so the classical usage patter
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * is:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * iter = listGetIterator(list,&lt;direction&gt;);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * while ((node = listNext(iter)) != NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *     doSomethingWith(listNodeValue(node));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">listNode *listNext(listIter *iter)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *current = iter-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (current != NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (iter-&gt;direction == AL_START_HEAD)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            iter-&gt;next = current-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        else
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            iter-&gt;next = current-&gt;prev;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return current;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Duplicate the whole list. On out of memory NULL is returned.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * On success a copy of the original list is returned.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * The &#39;</span>Dup<span style="color:#e6db74">&#39; method set with listSetDupMethod() function is used
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * to copy the node value. Otherwise the same pointer value of
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * the original node is used as value of the copied node.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * The original list both on success or error is never modified. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">list *listDup(list *orig)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list *copy;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listIter iter;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if ((copy = listCreate()) == NULL)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    copy-&gt;dup = orig-&gt;dup;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    copy-&gt;free = orig-&gt;free;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    copy-&gt;match = orig-&gt;match;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listRewind(orig, &amp;iter);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    while((node = listNext(&amp;iter)) != NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        void *value;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (copy-&gt;dup) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            value = copy-&gt;dup(node-&gt;value);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (value == NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                listRelease(copy);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        } else
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            value = node-&gt;value;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (listAddNodeTail(copy, value) == NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            listRelease(copy);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return copy;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Search the list for a node matching a given key.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * The match is performed using the &#39;</span>match<span style="color:#e6db74">&#39; method
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * set with listSetMatchMethod(). If no &#39;</span>match<span style="color:#e6db74">&#39; method
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * is set, the &#39;</span>value<span style="color:#e6db74">&#39; pointer of every node is directly
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * compared with the &#39;</span>key<span style="color:#e6db74">&#39; pointer.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * On success the first matching node pointer is returned
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * (search starts from head). If no matching node exists
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * NULL is returned. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">listNode *listSearchKey(list *list, void *key)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listIter iter;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listRewind(list, &amp;iter);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    while((node = listNext(&amp;iter)) != NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (list-&gt;match) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (list-&gt;match(node-&gt;value, key)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                return node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (key == node-&gt;value) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                return node;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Return the element at the specified zero-based index
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * where 0 is the head, 1 is the element next to head
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * and so on. Negative integers are used in order to count
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * from the tail, -1 is the last element, -2 the penultimate
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * and so on. If the index is out of range NULL is returned. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">listNode *listIndex(list *list, long index) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *n;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (index &lt; 0) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        index = (-index)-1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        n = list-&gt;tail;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(index-- &amp;&amp; n) n = n-&gt;prev;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        n = list-&gt;head;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(index-- &amp;&amp; n) n = n-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return n;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Rotate the list removing the tail node and inserting it to the head. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void listRotate(list *list) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    listNode *tail = list-&gt;tail;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (listLength(list) &lt;= 1) return;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Detach current tail */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;tail = tail-&gt;prev;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;tail-&gt;next = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Move it as head */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;head-&gt;prev = tail;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    tail-&gt;prev = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    tail-&gt;next = list-&gt;head;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    list-&gt;head = tail;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Add all the elements of the list &#39;</span>o<span style="color:#e6db74">&#39; at the end of the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * list &#39;</span>l<span style="color:#e6db74">&#39;. The list &#39;</span>other<span style="color:#960050;background-color:#1e0010">&#39;</span> remains empty but otherwise valid. */
+</span></span><span style="display:flex;"><span>//list o保持empty,不释放其listhead
+</span></span><span style="display:flex;"><span>void listJoin<span style="color:#f92672">(</span>list *l, list *o<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>o-&gt;head<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        o-&gt;head-&gt;prev <span style="color:#f92672">=</span> l-&gt;tail;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>l-&gt;tail<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        l-&gt;tail-&gt;next <span style="color:#f92672">=</span> o-&gt;head;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>        l-&gt;head <span style="color:#f92672">=</span> o-&gt;head;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    l-&gt;tail <span style="color:#f92672">=</span> o-&gt;tail;
+</span></span><span style="display:flex;"><span>    l-&gt;len +<span style="color:#f92672">=</span> o-&gt;len;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Setup other as an empty list. */
+</span></span><span style="display:flex;"><span>    o-&gt;head <span style="color:#f92672">=</span> o-&gt;tail <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    o-&gt;len <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="4参考文献">4.参考文献</h4>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/makefile/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-dict/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

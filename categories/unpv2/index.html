@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title>Unpv2 - Just For Fun</title>
+  <meta property="og:title" content="Unpv2 - Just For Fun" />
+  <meta name="twitter:title" content="Unpv2 - Just For Fun" />
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="https://qinch.github.io/categories/unpv2/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link href="/categories/unpv2/index.xml" rel="alternate" type="application/rss+xml" title="Just For Fun" />
+  <link href="/categories/unpv2/index.xml" rel="feed" type="application/rss+xml" title="Just For Fun" />
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <section class="list term-list">
+      <article class="article">
+        <a href="/posts/unpv2-p25/" class="article-titles">
+          <h2 class="article-title">IPC-标识符重用</h2>
+          
+        </a>
+        <ul class="article-meta">
+          <li class="article-meta-date"><time>April 7, 2017</time></li>
+          <li class="article-meta-categories">
+          </li>
+        </ul>
+        <div class="article-content">
+          <h5 id="1槽位使用情况序列号">1,槽位使用情况序列号</h5>
+<p>ipc_perm结构中含有一个名为seq的变量，是一个槽位使用情况序列号。该变量是一个由内核为系统中每个潜在的IPC对象维持的计数器。每当删除一个IPC对象时，内核就递增相应槽位的使用情况序列号，若溢出则循环回0.</p>
+<p>简单理解就是: 存在ipc_perm[max]，当创建ipc对象时，在ipc_perm数组中查找第一个ipc_perm元素为空，记为ipc_perm[i].当删除ipc_perm[i]对应的ipc时，ipc_perm[i].seq++,下次再次创建ipc对象时，假设ipc_perm[i]元素为空，则返回ipc id为i+ipc_perm[i].seq*max.
+注：槽位使用情况序列号是一个跨进程保持的内核变量。</p>
+        </div>
+        <div class="article-readmore"><a href="/posts/unpv2-p25/">Read more...</a></div>
+        <div class="article-floatclear"></div>
+      </article>
+    </section>
+    
+  </div>
+
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-rsslink">
+    </li>
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinch | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_发布/订阅
+category: redis
+date: 2017-12-12
+tags: [redis4.0,pub/sub,sourcecode]
+toc: false
+comments: false
+1. channel的订阅与退订
+
+
+UBSCRIBE, UNSUBSCRIBE and PUBLISH implement the Publish/Subscribe messaging paradigm where  senders (publishers) are not programmed to send their messages to specific receivers (subscribers). Rather, published messages are characterized into channels, without knowledge of what (if any) subscribers there may be. Subscribers express interest in one or more channels, and only receive messages that are of interest, without knowledge of what (if any) publishers there are.
+
+
+Messages sent by other clients to these channels will be pushed by Redis to all the subscribed clients.
+
+
+A client subscribed to one or more channels should not issue commands, although it can subscribe and unsubscribe to and from other channels. The replies to subscription and unsubscription operations are sent in the form of messages, so that the client can just read a coherent stream of messages where the first element indicates the type of message. The commands that are allowed in the context of a subscribed client are SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE, PING and QUIT.
+
+
+Please note that redis-cli will not accept any commands once in subscribed mode and can only quit the mode with Ctrl-C.
+
+
+channel订阅实现:在客户端结构体的pubsub_channels(为dict)添加key为订阅的channel的entry,在server结构体的pubsub_chanels（dict）添加key为channel的entry，该entry为所有订阅该channel的list
+
+">
+  <meta property="og:description" content="title: redis4.0_发布/订阅
+category: redis
+date: 2017-12-12
+tags: [redis4.0,pub/sub,sourcecode]
+toc: false
+comments: false
+1. channel的订阅与退订
+
+
+UBSCRIBE, UNSUBSCRIBE and PUBLISH implement the Publish/Subscribe messaging paradigm where  senders (publishers) are not programmed to send their messages to specific receivers (subscribers). Rather, published messages are characterized into channels, without knowledge of what (if any) subscribers there may be. Subscribers express interest in one or more channels, and only receive messages that are of interest, without knowledge of what (if any) publishers there are.
+
+
+Messages sent by other clients to these channels will be pushed by Redis to all the subscribed clients.
+
+
+A client subscribed to one or more channels should not issue commands, although it can subscribe and unsubscribe to and from other channels. The replies to subscription and unsubscription operations are sent in the form of messages, so that the client can just read a coherent stream of messages where the first element indicates the type of message. The commands that are allowed in the context of a subscribed client are SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE, PING and QUIT.
+
+
+Please note that redis-cli will not accept any commands once in subscribed mode and can only quit the mode with Ctrl-C.
+
+
+channel订阅实现:在客户端结构体的pubsub_channels(为dict)添加key为订阅的channel的entry,在server结构体的pubsub_chanels（dict）添加key为channel的entry，该entry为所有订阅该channel的list
+
+">
+  <meta name="twitter:description" content="title: redis4.0_发布/订阅
+category: redis
+date: 2017-12-12
+tags: [redis4.0,pub/sub,sourcecode]
+toc: false
+comments: false
+1. channel的订阅与退订
+
+
+UBSCRIBE, UNSUBSCRIBE and PUBLISH implement the …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-pub/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-false">title: redis4.0_发布/订阅
+category: redis
+date: 2017-12-12
+tags: [redis4.0,pub/sub,sourcecode]
+toc: false
+comments: false</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-false">title: redis4.0_发布/订阅
+category: redis
+date: 2017-12-12
+tags: [redis4.0,pub/sub,sourcecode]
+toc: false
+comments: false</h2>
+<h4 id="1-channel的订阅与退订">1. channel的订阅与退订</h4>
+<ul>
+<li>
+<p>UBSCRIBE, UNSUBSCRIBE and PUBLISH implement the Publish/Subscribe messaging paradigm where  senders (publishers) are not programmed to send their messages to specific receivers (subscribers). Rather, published messages are characterized into channels, without knowledge of what (if any) subscribers there may be. Subscribers express interest in one or more channels, and only receive messages that are of interest, without knowledge of what (if any) publishers there are.</p>
+</li>
+<li>
+<p>Messages sent by other clients to these channels will be pushed by Redis to all the subscribed clients.</p>
+</li>
+<li>
+<p>A client subscribed to one or more channels should not issue commands, although it can subscribe and unsubscribe to and from other channels. The replies to subscription and unsubscription operations are sent in the form of messages, so that the client can just read a coherent stream of messages where the first element indicates the type of message. The commands that are allowed in the context of a subscribed client are SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE, PING and QUIT.</p>
+</li>
+<li>
+<p>Please note that redis-cli will not accept any commands once in subscribed mode and can only quit the mode with Ctrl-C.</p>
+</li>
+<li>
+<p>channel订阅实现:在客户端结构体的pubsub_channels(为dict)添加key为订阅的channel的entry,在server结构体的pubsub_chanels（dict）添加key为channel的entry，该entry为所有订阅该channel的list</p>
+</li>
+</ul>
+<h4 id="2pattern-matching订阅与退订">2.Pattern-matching订阅与退订</h4>
+<ul>
+<li>
+<p>The Redis Pub/Sub implementation supports pattern matching. Clients may subscribe to glob-style patterns in order to receive all the messages sent to channel names matching a given pattern.</p>
+</li>
+<li>
+<p>pattern订阅实现：在客户端结构体的pubsub_patterns(为list)添加node,该node的value为订阅的pattern(robj)，在server结构体的pubsub_patterns（为list）添加pubsubPattern Node,该node的client为订阅该pattern的客户端指针,该pattern为订阅pattern的robj.</p>
+</li>
+</ul>
+<pre tabindex="0"><code>//src/server.h
+typedef struct pubsubPattern {
+     client *client;                                                
+     robj *pattern;                                                   
+} pubsubPattern;                                                     
+</code></pre><h4 id="3源码分析">3.源码分析</h4>
+<ul>
+<li>订阅channel代码:</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Subscribe a client to a channel. Returns <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">if</span> the operation succeeded, or
+</span></span><span style="display:flex;"><span> * <span style="color:#ae81ff">0</span> <span style="color:#66d9ef">if</span> the client was already subscribed to that channel. */
+</span></span><span style="display:flex;"><span>int pubsubSubscribeChannel<span style="color:#f92672">(</span>client *c, robj *channel<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictEntry *de;
+</span></span><span style="display:flex;"><span>    list *clients <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    int retval <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Add the channel to the client -&gt; channels hash table */
+</span></span><span style="display:flex;"><span>	//将订阅的channel添加到client结构体的pubsub_channels字典
+</span></span><span style="display:flex;"><span>	//key为channel
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictAdd<span style="color:#f92672">(</span>c-&gt;pubsub_channels,channel,NULL<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> DICT_OK<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        retval <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>        incrRefCount<span style="color:#f92672">(</span>channel<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        /* Add the client to the channel -&gt; list of clients hash table */
+</span></span><span style="display:flex;"><span>		//将channel添加到server的pubsub_channels字典
+</span></span><span style="display:flex;"><span>		//首先在dict中查找是否该channel存在，如果存在，将c添加到entry的value链表中
+</span></span><span style="display:flex;"><span>		//如果不存在，在字典中添加entry,该entry的key为robj，value为client的链表
+</span></span><span style="display:flex;"><span>        de <span style="color:#f92672">=</span> dictFind<span style="color:#f92672">(</span>server.pubsub_channels,channel<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>de <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>			//den<span style="color:#f92672">=</span>NULL表示该channel在dict不存在
+</span></span><span style="display:flex;"><span>            clients <span style="color:#f92672">=</span> listCreate<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>            dictAdd<span style="color:#f92672">(</span>server.pubsub_channels,channel,clients<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>			//robj引用+1
+</span></span><span style="display:flex;"><span>            incrRefCount<span style="color:#f92672">(</span>channel<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>			//该channel在dict中已经存在
+</span></span><span style="display:flex;"><span>            clients <span style="color:#f92672">=</span> dictGetVal<span style="color:#f92672">(</span>de<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        listAddNodeTail<span style="color:#f92672">(</span>clients,c<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    /* Notify the client */
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.mbulkhdr<span style="color:#f92672">[</span>3<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.subscribebulk<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    addReplyBulk<span style="color:#f92672">(</span>c,channel<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    addReplyLongLong<span style="color:#f92672">(</span>c,clientSubscriptionsCount<span style="color:#f92672">(</span>c<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> retval;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><ul>
+<li>订阅pattern代码:</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Subscribe a client to a pattern. Returns <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">if</span> the operation succeeded, or <span style="color:#ae81ff">0</span> <span style="color:#66d9ef">if</span> the client was already subscribed to that pattern. */
+</span></span><span style="display:flex;"><span>//订阅一个pattern
+</span></span><span style="display:flex;"><span>int pubsubSubscribePattern<span style="color:#f92672">(</span>client *c, robj *pattern<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int retval <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	//首先查找链表中是否存在该pattern
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>listSearchKey<span style="color:#f92672">(</span>c-&gt;pubsub_patterns,pattern<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        retval <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>        pubsubPattern *pat;
+</span></span><span style="display:flex;"><span>		//如果不存在，则添加到client的pubsub_patterns链表结尾
+</span></span><span style="display:flex;"><span>        listAddNodeTail<span style="color:#f92672">(</span>c-&gt;pubsub_patterns,pattern<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>		//增加引用计数
+</span></span><span style="display:flex;"><span>        incrRefCount<span style="color:#f92672">(</span>pattern<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		//将该pattern添加到server的pubsub_patterns链表 
+</span></span><span style="display:flex;"><span>        pat <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*pat<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>        pat-&gt;pattern <span style="color:#f92672">=</span> getDecodedObject<span style="color:#f92672">(</span>pattern<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        pat-&gt;client <span style="color:#f92672">=</span> c;
+</span></span><span style="display:flex;"><span>        listAddNodeTail<span style="color:#f92672">(</span>server.pubsub_patterns,pat<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    /* Notify the client */
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.mbulkhdr<span style="color:#f92672">[</span>3<span style="color:#f92672">])</span>;
+</span></span><span style="display:flex;"><span>    addReply<span style="color:#f92672">(</span>c,shared.psubscribebulk<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    addReplyBulk<span style="color:#f92672">(</span>c,pattern<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    addReplyLongLong<span style="color:#f92672">(</span>c,clientSubscriptionsCount<span style="color:#f92672">(</span>c<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> retval;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="4参考文献">4.参考文献</h4>
+<p>《<a href="https://redis.io/topics/pubsub">redis.io</a>》</p>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/redis4-object/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-sds/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

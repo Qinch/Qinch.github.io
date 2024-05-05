@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>OS Kernel on Just For Fun</title>
+    <link>http://localhost:1313/categories/os-kernel/</link>
+    <description>Recent content in OS Kernel on Just For Fun</description>
+    <generator>Hugo</generator>
+    <language>zh-cn</language>
+    <lastBuildDate>Mon, 11 Mar 2019 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/categories/os-kernel/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>跟着xv6学习OS Kernel</title>
+      <link>http://localhost:1313/posts/xv6/</link>
+      <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/posts/xv6/</guid>
+      <description>1. xv6 book 1 chapter1: os interfaces 0, The system call exec replaces the calling process&amp;rsquo;s memory but perserves its file table.&#xA;1, It should be clear why it is a good idea that fork and exec are separate calls. Beacuse if they are separate, the shell can fork a child, use open, close, dup in the child to change the standard input and output file descriptors and then exec. Two file descriptors share an offset if they were derived from the same original file descriptor by a sequence of fork and dup calls.</description>
+    </item>
+  </channel>
+</rss>

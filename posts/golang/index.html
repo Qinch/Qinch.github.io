@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: go并发 category: go date: 2021-03-28
+tags: [go] toc: false 1 管道 1.1 buffered channel 有缓冲的管道是一种在被接收前能存储一个或者多个值得管道，这种类型的管道并不强制要求goroutine之前必须同时完成发送和接受。只有在通道中没有要接受的值时，接收动作才会阻塞。只有在通道没有可以用缓冲区容纳被发送的值时，发送动作才会阻塞（类似于linux下的信号量，P/V操作，如果信号量的值非0， P操作减1，否则阻塞等待信号量的值大于0）
+关闭通道之后，依然可以从通道接收数据，但是不能再向通道里发送数据。从一个已经关闭的并且没有数据的通道里获取数据，总是立刻返回，并且返回一个通道类型的零值。（类似于tcp对端断开连接，read返回0）">
+  <meta property="og:description" content="title: go并发 category: go date: 2021-03-28
+tags: [go] toc: false 1 管道 1.1 buffered channel 有缓冲的管道是一种在被接收前能存储一个或者多个值得管道，这种类型的管道并不强制要求goroutine之前必须同时完成发送和接受。只有在通道中没有要接受的值时，接收动作才会阻塞。只有在通道没有可以用缓冲区容纳被发送的值时，发送动作才会阻塞（类似于linux下的信号量，P/V操作，如果信号量的值非0， P操作减1，否则阻塞等待信号量的值大于0）
+关闭通道之后，依然可以从通道接收数据，但是不能再向通道里发送数据。从一个已经关闭的并且没有数据的通道里获取数据，总是立刻返回，并且返回一个通道类型的零值。（类似于tcp对端断开连接，read返回0）">
+  <meta name="twitter:description" content="title: go并发 category: go date: 2021-03-28
+tags: [go] toc: false 1 管道 1.1 buffered channel 有缓冲的管道是一种在被接收前能存储一个或者多个值得管道，这种类型的管道并不强制要求goroutine之前必须同时完成发送和接受。只有在通道中没有要接受的值时，接收动作才会阻塞。只有在通道没有可以用缓冲区容纳被发送的值时， …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/golang/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+      <h2 id="toc-false">title: go并发
+category: go
+date: 2021-03-28<br>
+tags: [go]
+toc: false</h2>
+<h3 id="1-管道">1 管道</h3>
+<h4 id="11-buffered-channel">1.1 buffered channel</h4>
+<ul>
+<li>
+<p>有缓冲的管道是一种在被接收前能存储一个或者多个值得管道，这种类型的管道并不强制要求goroutine之前必须同时完成发送和接受。只有在通道中没有要接受的值时，接收动作才会阻塞。只有在通道没有可以用缓冲区容纳被发送的值时，发送动作才会阻塞（类似于linux下的信号量，P/V操作，如果信号量的值非0， P操作减1，否则阻塞等待信号量的值大于0）</p>
+</li>
+<li>
+<p>关闭通道之后，依然可以从通道接收数据，但是不能再向通道里发送数据。从一个已经关闭的并且没有数据的通道里获取数据，总是立刻返回，并且返回一个通道类型的零值。（类似于tcp对端断开连接，read返回0）</p>
+</li>
+</ul>
+
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/endian/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/k8s/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

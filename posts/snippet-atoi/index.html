@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: Atoi&amp;Itoa函数
+category: snippet
+date: 2018-01-28
+tags: [atoi,string2ll,snippet]
+toc: false
+comments: true
+
+atoi函数实现
+
+/*************************************************************************
+ &gt; File Name: Atoi.c
+ &gt; Author: qinchao
+ &gt; Mail: 1187620726@qq.com
+ &gt; Created Date:2018-01-28 Time:04:36:18.
+ ************************************************************************/
+
+// 32bits无符号整数表示范围[0, 2^32-1]
+#define UINTEGER32_MAX (4294967295)
+// 32bits有符号整数表示范围为[-2^31, 2^31-1]
+#define INTEGER32_MAX (2147483647)
+#define INTEGER32_MIN (-2147483648)
+
+int Atoi(const char *str) {
+  unsigned int value = 0;
+  // 1表示负数，0表示整数
+  int negative = 0;
+
+  //判断str指针非NULL
+  if (str != NULL) {
+    //判断是否为负数
+    if (str[0] == &#39;-&#39;) {
+      negative = 1;
+      str&#43;&#43;;
+    }
+    else if (str[0] == &#39;&#43;&#39;) {
+      str&#43;&#43;;
+    }
+    // str指向的字符串以0结尾
+    while (str[0] != &#39;\0&#39;) {
+      if (str[0] &gt;= &#39;0&#39; &amp;&amp; str[0] &lt;= &#39;9&#39;) {
+        //判断value是否会溢出
+        if (value &gt; UINTEGER32_MAX / 10) return 0;
+        value *= 10;
+        //判断value是否会溢出
+        if (value &gt; UINTEGER32_MAX - (str[0] - &#39;0&#39;)) return 0;
+        value &#43;= (str[0] - &#39;0&#39;);
+        str&#43;&#43;;
+      } else {
+        //含有非法字符，value的值返回0
+        value = 0;
+        break;
+      }
+    }
+    if (str[0] == &#39;\0&#39;) {
+      if (negative)  //负数
+      {
+        // INT32_MINI = -(INT32_MAX&#43;1)
+        if (value &gt; (unsigned int)(INTEGER32_MAX &#43; 1)) return 0;
+        return -value;
+      } else {  //正数
+        if (value &gt; INTEGER32_MAX) return 0;
+        return value;
+      }
+    }
+  }
+  return value;
+}
+">
+  <meta property="og:description" content="title: Atoi&amp;Itoa函数
+category: snippet
+date: 2018-01-28
+tags: [atoi,string2ll,snippet]
+toc: false
+comments: true
+
+atoi函数实现
+
+/*************************************************************************
+ &gt; File Name: Atoi.c
+ &gt; Author: qinchao
+ &gt; Mail: 1187620726@qq.com
+ &gt; Created Date:2018-01-28 Time:04:36:18.
+ ************************************************************************/
+
+// 32bits无符号整数表示范围[0, 2^32-1]
+#define UINTEGER32_MAX (4294967295)
+// 32bits有符号整数表示范围为[-2^31, 2^31-1]
+#define INTEGER32_MAX (2147483647)
+#define INTEGER32_MIN (-2147483648)
+
+int Atoi(const char *str) {
+  unsigned int value = 0;
+  // 1表示负数，0表示整数
+  int negative = 0;
+
+  //判断str指针非NULL
+  if (str != NULL) {
+    //判断是否为负数
+    if (str[0] == &#39;-&#39;) {
+      negative = 1;
+      str&#43;&#43;;
+    }
+    else if (str[0] == &#39;&#43;&#39;) {
+      str&#43;&#43;;
+    }
+    // str指向的字符串以0结尾
+    while (str[0] != &#39;\0&#39;) {
+      if (str[0] &gt;= &#39;0&#39; &amp;&amp; str[0] &lt;= &#39;9&#39;) {
+        //判断value是否会溢出
+        if (value &gt; UINTEGER32_MAX / 10) return 0;
+        value *= 10;
+        //判断value是否会溢出
+        if (value &gt; UINTEGER32_MAX - (str[0] - &#39;0&#39;)) return 0;
+        value &#43;= (str[0] - &#39;0&#39;);
+        str&#43;&#43;;
+      } else {
+        //含有非法字符，value的值返回0
+        value = 0;
+        break;
+      }
+    }
+    if (str[0] == &#39;\0&#39;) {
+      if (negative)  //负数
+      {
+        // INT32_MINI = -(INT32_MAX&#43;1)
+        if (value &gt; (unsigned int)(INTEGER32_MAX &#43; 1)) return 0;
+        return -value;
+      } else {  //正数
+        if (value &gt; INTEGER32_MAX) return 0;
+        return value;
+      }
+    }
+  }
+  return value;
+}
+">
+  <meta name="twitter:description" content="title: Atoi&amp;Itoa函数
+category: snippet
+date: 2018-01-28
+tags: [atoi,string2ll,snippet]
+toc: false
+comments: true
+
+atoi函数实现
+
+/************************************************************************* …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/snippet-atoi/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+      <h2 id="comments-true">title: Atoi&amp;Itoa函数
+category: snippet
+date: 2018-01-28
+tags: [atoi,string2ll,snippet]
+toc: false
+comments: true</h2>
+<ul>
+<li>atoi函数实现</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/*************************************************************************
+</span></span><span style="display:flex;"><span> &gt; File Name: Atoi.c
+</span></span><span style="display:flex;"><span> &gt; Author: qinchao
+</span></span><span style="display:flex;"><span> &gt; Mail: 1187620726@qq.com
+</span></span><span style="display:flex;"><span> &gt; Created Date:2018-01-28 Time:04:36:18.
+</span></span><span style="display:flex;"><span> ************************************************************************/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>// 32bits无符号整数表示范围<span style="color:#f92672">[</span>0, 2^32-1<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define UINTEGER32_MAX (4294967295)</span>
+</span></span><span style="display:flex;"><span>// 32bits有符号整数表示范围为<span style="color:#f92672">[</span>-2^31, 2^31-1<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define INTEGER32_MAX (2147483647)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define INTEGER32_MIN (-2147483648)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>int Atoi<span style="color:#f92672">(</span>const char *str<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>  unsigned int value <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>  // 1表示负数，0表示整数
+</span></span><span style="display:flex;"><span>  int negative <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  //判断str指针非NULL
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>str !<span style="color:#f92672">=</span> NULL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    //判断是否为负数
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;-&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>      negative <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>      str++;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;+&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>      str++;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    // str指向的字符串以0结尾
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> !<span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;\0&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> &gt;<span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;0&#39;</span> <span style="color:#f92672">&amp;&amp;</span> str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> &lt;<span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;9&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        //判断value是否会溢出
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &gt; UINTEGER32_MAX / 10<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>        value *<span style="color:#f92672">=</span> 10;
+</span></span><span style="display:flex;"><span>        //判断value是否会溢出
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &gt; UINTEGER32_MAX - <span style="color:#f92672">(</span>str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> - <span style="color:#e6db74">&#39;0&#39;</span><span style="color:#f92672">))</span> <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">+=</span> <span style="color:#f92672">(</span>str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> - <span style="color:#e6db74">&#39;0&#39;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        str++;
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        //含有非法字符，value的值返回0
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>        break;
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>str<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;\0&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>negative<span style="color:#f92672">)</span>  //负数
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        // INT32_MINI <span style="color:#f92672">=</span> -<span style="color:#f92672">(</span>INT32_MAX+1<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &gt; <span style="color:#f92672">(</span>unsigned int<span style="color:#f92672">)(</span>INTEGER32_MAX + 1<span style="color:#f92672">))</span> <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> -value;
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>  //正数
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &gt; INTEGER32_MAX<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> value;
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> value;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><ul>
+<li>itoa函数实现</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define INT_MIN (-2147483648)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define INT_MAX ( 2147483647)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>unsigned digits10<span style="color:#f92672">(</span>unsigned v<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; 10<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; 100<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> 2;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; 1000<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> 3;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; 1000000000<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; 100000000<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; 1000000<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>v &lt; 10000<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> 4;
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">5</span> + <span style="color:#f92672">(</span>v &gt;<span style="color:#f92672">=</span> 100000<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">7</span> + <span style="color:#f92672">(</span>v &gt;<span style="color:#f92672">=</span> 10000000<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 9;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> 10;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>int Itoa<span style="color:#f92672">(</span>char *dst, unsigned dstlen, int svalue<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    static const char digits<span style="color:#f92672">[</span>201<span style="color:#f92672">]</span> <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;0001020304050607080910111213141516171819&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;2021222324252627282930313233343536373839&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;4041424344454647484950515253545556575859&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;6061626364656667686970717273747576777879&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;8081828384858687888990919293949596979899&#34;</span>;
+</span></span><span style="display:flex;"><span>    int negative;
+</span></span><span style="display:flex;"><span>    unsigned value;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>svalue &lt; 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> -svalue;
+</span></span><span style="display:flex;"><span>        negative <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> svalue;
+</span></span><span style="display:flex;"><span>        negative <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Check length. */
+</span></span><span style="display:flex;"><span>    unsigned const length <span style="color:#f92672">=</span> digits10<span style="color:#f92672">(</span>value<span style="color:#f92672">)</span>+negative;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>length &gt;<span style="color:#f92672">=</span> dstlen<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Null term. */
+</span></span><span style="display:flex;"><span>    unsigned next <span style="color:#f92672">=</span> length;
+</span></span><span style="display:flex;"><span>    dst<span style="color:#f92672">[</span>next<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;\0&#39;</span>;
+</span></span><span style="display:flex;"><span>    next--;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>value &gt;<span style="color:#f92672">=</span> 10<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        int const i <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>value % 100<span style="color:#f92672">)</span> * 2;
+</span></span><span style="display:flex;"><span>        value /<span style="color:#f92672">=</span> 100;
+</span></span><span style="display:flex;"><span>        dst<span style="color:#f92672">[</span>next<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> digits<span style="color:#f92672">[</span>i + 1<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        dst<span style="color:#f92672">[</span>next - 1<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> digits<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        next -<span style="color:#f92672">=</span> 2;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Handle last <span style="color:#ae81ff">1</span> digits. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>value &gt; <span style="color:#ae81ff">0</span> <span style="color:#f92672">||</span> length <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        dst<span style="color:#f92672">[</span>next<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;0&#39;</span> + value;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Add sign. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>negative<span style="color:#f92672">)</span> dst<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;-&#39;</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> length;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/scp/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/bits-int/" data-toggle="tooltip" data-placement="top" title="24 bits解析为有符号整数">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

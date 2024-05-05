@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: redis4.0_dict源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,dict,sourcecode]
+toc: false
+comments: false
+1.dict概述
+
+dict(字典)：又称为符号表（symbol table）,关联数组（associative array）或者映射（map）,是一种用于保存键值对（key-value pair）的抽象数据结构。字典中每个键都是独一无二的，程序可以在字典中根据键查找与之关联的值，或者根据键来删除整个键值对。
+
+2.dict结构体
+
+hash table结构体
+
+
+/* Unused arguments generate annoying warnings... */
+#define DICT_NOTUSED(V) ((void) V)
+//hash table节点
+typedef struct dictEntry {
+    //键
+    void *key;
+    //值
+    union {
+        void *val;
+        uint64_t u64;
+        int64_t s64;
+        double d;
+    } v;
+    //指向下一个hash table节点
+    struct dictEntry *next;
+} dictEntry;
+
+/* This is our hash table structure. Every dictionary has two of this as we
+ * implement incremental rehashing, for the old to the new table. */
+//hash table
+typedef struct dictht {
+    //hash table数组[动态二维数组内存布局](http://chinchao.xyz/2016/04/07/cpp-model-2/)
+    dictEntry **table;
+    //hash table数组的大小,size=2^n
+    unsigned long size;
+    //sizemash=size-1,hash table掩码，用于计算索引值
+    unsigned long sizemask;
+    //hash table中节点(dictEntry)的数量
+    unsigned long used;
+} dictht;
+
+dict结构体
+
+
+//字典
+typedef struct dict {
+    dictType *type;
+    void *privdata;
+    dictht ht[2];
+    //rehashidx=-1表示没有进行rehash，否则rehashidx表示hash table数组中当前待rehash的元素的索引
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 */
+    //安全迭代器的数量
+    unsigned long iterators; /* number of iterators currently running */
+} dict;
+
+//类型特定函数
+typedef struct dictType {
+    uint64_t (*hashFunction)(const void *key);
+    void *(*keyDup)(void *privdata, const void *key);
+    void *(*valDup)(void *privdata, const void *obj);
+    int (*keyCompare)(void *privdata, const void *key1, const void *key2);
+    void (*keyDestructor)(void *privdata, void *key);
+    void (*valDestructor)(void *privdata, void *obj);
+} dictType;
+">
+  <meta property="og:description" content="title: redis4.0_dict源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,dict,sourcecode]
+toc: false
+comments: false
+1.dict概述
+
+dict(字典)：又称为符号表（symbol table）,关联数组（associative array）或者映射（map）,是一种用于保存键值对（key-value pair）的抽象数据结构。字典中每个键都是独一无二的，程序可以在字典中根据键查找与之关联的值，或者根据键来删除整个键值对。
+
+2.dict结构体
+
+hash table结构体
+
+
+/* Unused arguments generate annoying warnings... */
+#define DICT_NOTUSED(V) ((void) V)
+//hash table节点
+typedef struct dictEntry {
+    //键
+    void *key;
+    //值
+    union {
+        void *val;
+        uint64_t u64;
+        int64_t s64;
+        double d;
+    } v;
+    //指向下一个hash table节点
+    struct dictEntry *next;
+} dictEntry;
+
+/* This is our hash table structure. Every dictionary has two of this as we
+ * implement incremental rehashing, for the old to the new table. */
+//hash table
+typedef struct dictht {
+    //hash table数组[动态二维数组内存布局](http://chinchao.xyz/2016/04/07/cpp-model-2/)
+    dictEntry **table;
+    //hash table数组的大小,size=2^n
+    unsigned long size;
+    //sizemash=size-1,hash table掩码，用于计算索引值
+    unsigned long sizemask;
+    //hash table中节点(dictEntry)的数量
+    unsigned long used;
+} dictht;
+
+dict结构体
+
+
+//字典
+typedef struct dict {
+    dictType *type;
+    void *privdata;
+    dictht ht[2];
+    //rehashidx=-1表示没有进行rehash，否则rehashidx表示hash table数组中当前待rehash的元素的索引
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 */
+    //安全迭代器的数量
+    unsigned long iterators; /* number of iterators currently running */
+} dict;
+
+//类型特定函数
+typedef struct dictType {
+    uint64_t (*hashFunction)(const void *key);
+    void *(*keyDup)(void *privdata, const void *key);
+    void *(*valDup)(void *privdata, const void *obj);
+    int (*keyCompare)(void *privdata, const void *key1, const void *key2);
+    void (*keyDestructor)(void *privdata, void *key);
+    void (*valDestructor)(void *privdata, void *obj);
+} dictType;
+">
+  <meta name="twitter:description" content="title: redis4.0_dict源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,dict,sourcecode]
+toc: false
+comments: false
+1.dict概述
+
+dict(字典)：又称为符号表（symbol table）,关联数组（associative array）或者映射（map）,是一种用于保存键值 …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/redis4-dict/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+<aside class="toc">
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#comments-false">title: redis4.0_dict源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,dict,sourcecode]
+toc: false
+comments: false</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+</aside>
+      <h2 id="comments-false">title: redis4.0_dict源码剖析
+category: redis
+date: 2017-12-01
+tags: [redis4.0,dict,sourcecode]
+toc: false
+comments: false</h2>
+<h4 id="1dict概述">1.dict概述</h4>
+<ul>
+<li>dict(字典)：又称为符号表（symbol table）,关联数组（associative array）或者映射（map）,是一种用于保存键值对（key-value pair）的抽象数据结构。字典中每个键都是独一无二的，程序可以在字典中根据键查找与之关联的值，或者根据键来删除整个键值对。</li>
+</ul>
+<h4 id="2dict结构体">2.dict结构体</h4>
+<ul>
+<li>hash table结构体
+<img src="/img/dict0.png" alt="ht"></li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Unused arguments generate annoying warnings... */
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define DICT_NOTUSED(V) ((void) V)</span>
+</span></span><span style="display:flex;"><span>//hash table节点
+</span></span><span style="display:flex;"><span>typedef struct dictEntry <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    //键
+</span></span><span style="display:flex;"><span>    void *key;
+</span></span><span style="display:flex;"><span>    //值
+</span></span><span style="display:flex;"><span>    union <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        void *val;
+</span></span><span style="display:flex;"><span>        uint64_t u64;
+</span></span><span style="display:flex;"><span>        int64_t s64;
+</span></span><span style="display:flex;"><span>        double d;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> v;
+</span></span><span style="display:flex;"><span>    //指向下一个hash table节点
+</span></span><span style="display:flex;"><span>    struct dictEntry *next;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> dictEntry;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* This is our hash table structure. Every dictionary has two of this as we
+</span></span><span style="display:flex;"><span> * implement incremental rehashing, <span style="color:#66d9ef">for</span> the old to the new table. */
+</span></span><span style="display:flex;"><span>//hash table
+</span></span><span style="display:flex;"><span>typedef struct dictht <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    //hash table数组<span style="color:#f92672">[</span>动态二维数组内存布局<span style="color:#f92672">](</span>http://chinchao.xyz/2016/04/07/cpp-model-2/<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    dictEntry **table;
+</span></span><span style="display:flex;"><span>    //hash table数组的大小,size<span style="color:#f92672">=</span>2^n
+</span></span><span style="display:flex;"><span>    unsigned long size;
+</span></span><span style="display:flex;"><span>    //sizemash<span style="color:#f92672">=</span>size-1,hash table掩码，用于计算索引值
+</span></span><span style="display:flex;"><span>    unsigned long sizemask;
+</span></span><span style="display:flex;"><span>    //hash table中节点<span style="color:#f92672">(</span>dictEntry<span style="color:#f92672">)</span>的数量
+</span></span><span style="display:flex;"><span>    unsigned long used;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> dictht;
+</span></span></code></pre></div><ul>
+<li>dict结构体</li>
+</ul>
+<p><img src="/img/dict1.png" alt="ht"></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>//字典
+</span></span><span style="display:flex;"><span>typedef struct dict <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictType *type;
+</span></span><span style="display:flex;"><span>    void *privdata;
+</span></span><span style="display:flex;"><span>    dictht ht<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    //rehashidx<span style="color:#f92672">=</span>-1表示没有进行rehash，否则rehashidx表示hash table数组中当前待rehash的元素的索引
+</span></span><span style="display:flex;"><span>    long rehashidx; /* rehashing not in progress <span style="color:#66d9ef">if</span> rehashidx <span style="color:#f92672">==</span> -1 */
+</span></span><span style="display:flex;"><span>    //安全迭代器的数量
+</span></span><span style="display:flex;"><span>    unsigned long iterators; /* number of iterators currently running */
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> dict;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//类型特定函数
+</span></span><span style="display:flex;"><span>typedef struct dictType <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    uint64_t <span style="color:#f92672">(</span>*hashFunction<span style="color:#f92672">)(</span>const void *key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    void *<span style="color:#f92672">(</span>*keyDup<span style="color:#f92672">)(</span>void *privdata, const void *key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    void *<span style="color:#f92672">(</span>*valDup<span style="color:#f92672">)(</span>void *privdata, const void *obj<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    int <span style="color:#f92672">(</span>*keyCompare<span style="color:#f92672">)(</span>void *privdata, const void *key1, const void *key2<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    void <span style="color:#f92672">(</span>*keyDestructor<span style="color:#f92672">)(</span>void *privdata, void *key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    void <span style="color:#f92672">(</span>*valDestructor<span style="color:#f92672">)(</span>void *privdata, void *obj<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> dictType;
+</span></span></code></pre></div><h4 id="3dictc源码">3.dict.c源码</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/* Hash Tables Implementation.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * This file implements in memory hash tables with insert/del/replace/find/
+</span></span><span style="display:flex;"><span> * get-random-element operations. Hash tables will auto resize <span style="color:#66d9ef">if</span> needed
+</span></span><span style="display:flex;"><span> * tables of power of two in size are used, collisions are handled by
+</span></span><span style="display:flex;"><span> * chaining. See the source code <span style="color:#66d9ef">for</span> more information... :<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Copyright <span style="color:#f92672">(</span>c<span style="color:#f92672">)</span> 2006-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;
+</span></span><span style="display:flex;"><span> * All rights reserved.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Redistribution and use in source and binary forms, with or without
+</span></span><span style="display:flex;"><span> * modification, are permitted provided that the following conditions are met:
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> *   * Redistributions of source code must retain the above copyright notice,
+</span></span><span style="display:flex;"><span> *     this list of conditions and the following disclaimer.
+</span></span><span style="display:flex;"><span> *   * Redistributions in binary form must reproduce the above copyright
+</span></span><span style="display:flex;"><span> *     notice, this list of conditions and the following disclaimer in the
+</span></span><span style="display:flex;"><span> *     documentation and/or other materials provided with the distribution.
+</span></span><span style="display:flex;"><span> *   * Neither the name of Redis nor the names of its contributors may be used
+</span></span><span style="display:flex;"><span> *     to endorse or promote products derived from this software without
+</span></span><span style="display:flex;"><span> *     specific prior written permission.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS <span style="color:#e6db74">&#34;AS IS&#34;</span>
+</span></span><span style="display:flex;"><span> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+</span></span><span style="display:flex;"><span> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+</span></span><span style="display:flex;"><span> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+</span></span><span style="display:flex;"><span> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+</span></span><span style="display:flex;"><span> * CONSEQUENTIAL DAMAGES <span style="color:#f92672">(</span>INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+</span></span><span style="display:flex;"><span> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+</span></span><span style="display:flex;"><span> * INTERRUPTION<span style="color:#f92672">)</span> HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+</span></span><span style="display:flex;"><span> * CONTRACT, STRICT LIABILITY, OR TORT <span style="color:#f92672">(</span>INCLUDING NEGLIGENCE OR OTHERWISE<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+</span></span><span style="display:flex;"><span> * POSSIBILITY OF SUCH DAMAGE.
+</span></span><span style="display:flex;"><span> */
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;fmacros.h&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;stdio.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;stdlib.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;stdint.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;string.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;stdarg.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;limits.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;sys/time.h&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;dict.h&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;zmalloc.h&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#ifndef DICT_BENCHMARK_MAIN</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &#34;redisassert.h&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#else</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include &lt;assert.h&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#endif</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Using dictEnableResize<span style="color:#f92672">()</span> / dictDisableResize<span style="color:#f92672">()</span> we make possible to
+</span></span><span style="display:flex;"><span> * enable/disable resizing of the hash table as needed. This is very important
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">for</span> Redis, as we use copy-on-write and don<span style="color:#e6db74">&#39;t want to move too much memory
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * around when there is a child performing saving operations.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * 当dict_can_resize=0，但是hash table的负载因子(load_factor=ht[0].used/ht[0].size)大于5，
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * 则允许hash table resize
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * Note that even when dict_can_resize is set to 0, not all resizes are
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * prevented: a hash table is still allowed to grow if the ratio between
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * the number of elements and the buckets &gt; dict_force_resize_ratio. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static int dict_can_resize = 1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static unsigned int dict_force_resize_ratio = 5;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* -------------------------- private prototypes ---------------------------- */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static int _dictExpandIfNeeded(dict *ht);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static unsigned long _dictNextPower(unsigned long size);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static int _dictKeyIndex(dict *ht, const void *key, unsigned int hash, dictEntry **existing);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static int _dictInit(dict *ht, dictType *type, void *privDataPtr);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* -------------------------- hash functions -------------------------------- */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static uint8_t dict_hash_function_seed[16];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void dictSetHashFunctionSeed(uint8_t *seed) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    memcpy(dict_hash_function_seed,seed,sizeof(dict_hash_function_seed));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">uint8_t *dictGetHashFunctionSeed(void) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return dict_hash_function_seed;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* The default hashing function uses SipHash implementation
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * in siphash.c. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">uint64_t siphash(const uint8_t *in, const size_t inlen, const uint8_t *k);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">uint64_t siphash_nocase(const uint8_t *in, const size_t inlen, const uint8_t *k);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">uint64_t dictGenHashFunction(const void *key, int len) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return siphash(key,len,dict_hash_function_seed);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">uint64_t dictGenCaseHashFunction(const unsigned char *buf, int len) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return siphash_nocase(buf,len,dict_hash_function_seed);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* ----------------------------- API implementation ------------------------- */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Reset a hash table already initialized with ht_init().
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * NOTE: This function should only be called by ht_destroy(). */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//对hash table进行初始化
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static void _dictReset(dictht *ht)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ht-&gt;table = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ht-&gt;size = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ht-&gt;sizemask = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ht-&gt;used = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Create a new hash table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* 
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * dict内存布局
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * __________
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |  type   |
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |_________|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |privdata |
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |_________|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |  ht[0]  |
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |_________|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |  ht[1]  |
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |_________|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |rehashidx|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |_________|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |iterators|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * |_________|
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//创建字典
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">dict *dictCreate(dictType *type,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        void *privDataPtr)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dict *d = zmalloc(sizeof(*d));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    _dictInit(d,type,privDataPtr);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return d;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Initialize the hash table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//初始化hash table
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int _dictInit(dict *d, dictType *type,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        void *privDataPtr)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//对ht[0]进行初始化
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    _dictReset(&amp;d-&gt;ht[0]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//对ht[1]进行初始化
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    _dictReset(&amp;d-&gt;ht[1]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    d-&gt;type = type;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    d-&gt;privdata = privDataPtr;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//当前没有进行rehash
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    d-&gt;rehashidx = -1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    d-&gt;iterators = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return DICT_OK;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Resize the table to the minimal size that contains all the elements,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * but with the invariant of a USED/BUCKETS ratio near to &lt;= 1 */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//设置hash table的buckets
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int dictResize(dict *d)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    int minimal;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//dict_can_resize=0或者dic is rehashing
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (!dict_can_resize || dictIsRehashing(d)) return DICT_ERR;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    minimal = d-&gt;ht[0].used;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (minimal &lt; DICT_HT_INITIAL_SIZE)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        minimal = DICT_HT_INITIAL_SIZE;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return dictExpand(d, minimal);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Expand or create the hash table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">//size 为hash table节点的数量, 
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int dictExpand(dict *d, unsigned long size)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dictht n; /* the new hash table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//realsize为第一个大于等于size(ht[0].used)的2^n
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned long realsize = _dictNextPower(size);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* the size is invalid if it is smaller than the number of
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * elements already inside the hash table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (dictIsRehashing(d) || d-&gt;ht[0].used &gt; size)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return DICT_ERR;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Rehashing to the same table size is not useful. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//与原来的ht[0].size相同
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (realsize == d-&gt;ht[0].size) return DICT_ERR;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Allocate the new hash table and initialize all pointers to NULL */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    n.size = realsize;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    n.sizemask = realsize-1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    n.table = zcalloc(realsize*sizeof(dictEntry*));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    n.used = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Is this the first initialization? If so it&#39;</span>s not really a rehashing
+</span></span><span style="display:flex;"><span>     * we just set the first hash table so that it can accept keys. */
+</span></span><span style="display:flex;"><span>	//首次初始化hash table
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.table <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> n;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> DICT_OK;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Prepare a second hash table <span style="color:#66d9ef">for</span> incremental rehashing */
+</span></span><span style="display:flex;"><span>    d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> n;
+</span></span><span style="display:flex;"><span>	//start rehash flag
+</span></span><span style="display:flex;"><span>    d-&gt;rehashidx <span style="color:#f92672">=</span> 0;//进行rehash的标志
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> DICT_OK;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Performs N steps of incremental rehashing. Returns <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">if</span> there are still
+</span></span><span style="display:flex;"><span> * keys to move from the old to the new hash table, otherwise <span style="color:#ae81ff">0</span> is returned.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Note that a rehashing step consists in moving a bucket <span style="color:#f92672">(</span>that may have more
+</span></span><span style="display:flex;"><span> * than one key as we use chaining<span style="color:#f92672">)</span> from the old to the new hash table, however
+</span></span><span style="display:flex;"><span> * since part of the hash table may be composed of empty spaces, it is not
+</span></span><span style="display:flex;"><span> * guaranteed that this <span style="color:#66d9ef">function</span> will rehash even a single bucket, since it
+</span></span><span style="display:flex;"><span> * will visit at max N*10 empty buckets in total, otherwise the amount of
+</span></span><span style="display:flex;"><span> * work it does would be unbound and the <span style="color:#66d9ef">function</span> may block <span style="color:#66d9ef">for</span> a long time. */
+</span></span><span style="display:flex;"><span>//渐进式rehash,进行n次增量式rehash,每次将hash table数组中一个元素指向的链表的所有
+</span></span><span style="display:flex;"><span>//元素move 到新的hash table
+</span></span><span style="display:flex;"><span>int dictRehash<span style="color:#f92672">(</span>dict *d, int n<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>	//访问hash table数组空元素的最大个数
+</span></span><span style="display:flex;"><span>    int empty_visits <span style="color:#f92672">=</span> n*10; /* Max number of empty buckets to visit. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">))</span> <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>n-- <span style="color:#f92672">&amp;&amp;</span> d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.used !<span style="color:#f92672">=</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        dictEntry *de, *nextde;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        /* Note that rehashidx can<span style="color:#e6db74">&#39;t overflow as we are sure there are more
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * elements because ht[0].used != 0 */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        assert(d-&gt;ht[0].size &gt; (unsigned long)d-&gt;rehashidx);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(d-&gt;ht[0].table[d-&gt;rehashidx] == NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            d-&gt;rehashidx++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">			//达到最大的访问hash table数组空元素的次数
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (--empty_visits == 0) return 1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        de = d-&gt;ht[0].table[d-&gt;rehashidx];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Move all the keys in this bucket from the old to the new hash HT */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">		//rehase一个bucket
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(de) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            unsigned int h;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            nextde = de-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            /* Get the index in the new hash table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">			//获取hash table数组的索引
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            h = dictHashKey(d, de-&gt;key) &amp; d-&gt;ht[1].sizemask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            de-&gt;next = d-&gt;ht[1].table[h];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            d-&gt;ht[1].table[h] = de;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            d-&gt;ht[0].used--;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            d-&gt;ht[1].used++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            de = nextde;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        d-&gt;ht[0].table[d-&gt;rehashidx] = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        d-&gt;rehashidx++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Check if we already rehashed the whole table... */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (d-&gt;ht[0].used == 0) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        zfree(d-&gt;ht[0].table);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        d-&gt;ht[0] = d-&gt;ht[1];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">		//对ht[1]进行初始化
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        _dictReset(&amp;d-&gt;ht[1]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">		//rehash结束
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        d-&gt;rehashidx = -1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* More to rehash... */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return 1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">long long timeInMilliseconds(void) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    struct timeval tv;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    gettimeofday(&amp;tv,NULL);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return (((long long)tv.tv_sec)*1000)+(tv.tv_usec/1000);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Rehash for an amount of time between ms milliseconds and ms+1 milliseconds */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int dictRehashMilliseconds(dict *d, int ms) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    long long start = timeInMilliseconds();
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    int rehashes = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    while(dictRehash(d,100)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        rehashes += 100;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (timeInMilliseconds()-start &gt; ms) break;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return rehashes;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* This function performs just a step of rehashing, and only if there are
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * no safe iterators bound to our hash table. When we have iterators in the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * middle of a rehashing we can&#39;</span>t mess with the two hash tables otherwise
+</span></span><span style="display:flex;"><span> * some element can be missed or duplicated.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * This <span style="color:#66d9ef">function</span> is called by common lookup or update operations in the
+</span></span><span style="display:flex;"><span> * dictionary so that the hash table automatically migrates from H1 to H2
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">while</span> it is actively used. */
+</span></span><span style="display:flex;"><span>//进行一次rehash
+</span></span><span style="display:flex;"><span>static void _dictRehashStep<span style="color:#f92672">(</span>dict *d<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>d-&gt;iterators <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> dictRehash<span style="color:#f92672">(</span>d,1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Add an element to the target hash table */
+</span></span><span style="display:flex;"><span>int dictAdd<span style="color:#f92672">(</span>dict *d, void *key, void *val<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictEntry *entry <span style="color:#f92672">=</span> dictAddRaw<span style="color:#f92672">(</span>d,key,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!entry<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> DICT_ERR;
+</span></span><span style="display:flex;"><span>    dictSetVal<span style="color:#f92672">(</span>d, entry, val<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> DICT_OK;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Low level add or find:
+</span></span><span style="display:flex;"><span> * This <span style="color:#66d9ef">function</span> adds the entry but instead of setting a value returns the
+</span></span><span style="display:flex;"><span> * dictEntry structure to the user, that will make sure to fill the value
+</span></span><span style="display:flex;"><span> * field as he wishes.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * This <span style="color:#66d9ef">function</span> is also directly exposed to the user API to be called
+</span></span><span style="display:flex;"><span> * mainly in order to store non-pointers inside the hash value, example:
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * entry <span style="color:#f92672">=</span> dictAddRaw<span style="color:#f92672">(</span>dict,mykey,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span> * <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>entry !<span style="color:#f92672">=</span> NULL<span style="color:#f92672">)</span> dictSetSignedIntegerVal<span style="color:#f92672">(</span>entry,1000<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Return values:
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * If key already exists NULL is returned, and <span style="color:#e6db74">&#34;*existing&#34;</span> is populated
+</span></span><span style="display:flex;"><span> * with the existing entry <span style="color:#66d9ef">if</span> existing is not NULL.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * If key was added, the hash entry is returned to be manipulated by the caller.
+</span></span><span style="display:flex;"><span> */
+</span></span><span style="display:flex;"><span>//对hash table添加节点
+</span></span><span style="display:flex;"><span>//如果返回值为NULL, *existing即为dict中已存在的key对应的元素的首地址
+</span></span><span style="display:flex;"><span>//如果返回值为非NULL，则返回值为添加节点的首地址，*existing<span style="color:#f92672">=</span>NULL
+</span></span><span style="display:flex;"><span>dictEntry *dictAddRaw<span style="color:#f92672">(</span>dict *d, void *key, dictEntry **existing<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    int index;
+</span></span><span style="display:flex;"><span>    dictEntry *entry;
+</span></span><span style="display:flex;"><span>    dictht *ht;
+</span></span><span style="display:flex;"><span>	//如果添加节点时，正处于rehase状态，则进行一次rehash操作
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">))</span> _dictRehashStep<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Get the index of the new element, or -1 <span style="color:#66d9ef">if</span>
+</span></span><span style="display:flex;"><span>     * the element already exists. */
+</span></span><span style="display:flex;"><span>	//idex为返回的hash table数组的索引
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>index <span style="color:#f92672">=</span> _dictKeyIndex<span style="color:#f92672">(</span>d, key, dictHashKey<span style="color:#f92672">(</span>d,key<span style="color:#f92672">)</span>, existing<span style="color:#f92672">))</span> <span style="color:#f92672">==</span> -1<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Allocate the memory and store the new entry.
+</span></span><span style="display:flex;"><span>     * Insert the element in top, with the assumption that in a database
+</span></span><span style="display:flex;"><span>     * system it is more likely that recently added entries are accessed
+</span></span><span style="display:flex;"><span>     * more frequently. */
+</span></span><span style="display:flex;"><span>	//如果正在进行rehash，则新增元素只添加在ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>.table
+</span></span><span style="display:flex;"><span>    ht <span style="color:#f92672">=</span> dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span> ? &amp;d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> : &amp;d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    entry <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*entry<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    entry-&gt;next <span style="color:#f92672">=</span> ht-&gt;table<span style="color:#f92672">[</span>index<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>    ht-&gt;table<span style="color:#f92672">[</span>index<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> entry;
+</span></span><span style="display:flex;"><span>    ht-&gt;used++;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Set the hash entry fields. */
+</span></span><span style="display:flex;"><span>    dictSetKey<span style="color:#f92672">(</span>d, entry, key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> entry;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Add or Overwrite:
+</span></span><span style="display:flex;"><span> * Add an element, discarding the old value <span style="color:#66d9ef">if</span> the key already exists.
+</span></span><span style="display:flex;"><span> * Return <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">if</span> the key was added from scratch, <span style="color:#ae81ff">0</span> <span style="color:#66d9ef">if</span> there was already an
+</span></span><span style="display:flex;"><span> * element with such key and dictReplace<span style="color:#f92672">()</span> just performed a value update
+</span></span><span style="display:flex;"><span> * operation. */
+</span></span><span style="display:flex;"><span>int dictReplace<span style="color:#f92672">(</span>dict *d, void *key, void *val<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictEntry *entry, *existing, auxentry;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Try to add the element. If the key
+</span></span><span style="display:flex;"><span>     * does not exists dictAdd will suceed. */
+</span></span><span style="display:flex;"><span>    entry <span style="color:#f92672">=</span> dictAddRaw<span style="color:#f92672">(</span>d,key,&amp;existing<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>entry<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		//新增节点
+</span></span><span style="display:flex;"><span>        dictSetVal<span style="color:#f92672">(</span>d, entry, val<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>	//else hash table中存在key
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Set the new value and free the old one. Note that it is important
+</span></span><span style="display:flex;"><span>     * to <span style="color:#66d9ef">do</span> that in this order, as the value may just be exactly the same
+</span></span><span style="display:flex;"><span>     * as the previous one. In this context, think to reference counting,
+</span></span><span style="display:flex;"><span>     * you want to increment <span style="color:#f92672">(</span>set<span style="color:#f92672">)</span>, and <span style="color:#66d9ef">then</span> decrement <span style="color:#f92672">(</span>free<span style="color:#f92672">)</span>, and not the
+</span></span><span style="display:flex;"><span>     * reverse. */
+</span></span><span style="display:flex;"><span>    auxentry <span style="color:#f92672">=</span> *existing;
+</span></span><span style="display:flex;"><span>	//用val替换已有节点的val
+</span></span><span style="display:flex;"><span>    dictSetVal<span style="color:#f92672">(</span>d, existing, val<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>	//释放old val
+</span></span><span style="display:flex;"><span>    dictFreeVal<span style="color:#f92672">(</span>d, &amp;auxentry<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> 0;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Add or Find:
+</span></span><span style="display:flex;"><span> * dictAddOrFind<span style="color:#f92672">()</span> is simply a version of dictAddRaw<span style="color:#f92672">()</span> that always
+</span></span><span style="display:flex;"><span> * returns the hash entry of the specified key, even <span style="color:#66d9ef">if</span> the key already
+</span></span><span style="display:flex;"><span> * exists and can<span style="color:#e6db74">&#39;t be added (in that case the entry of the already
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * existing key is returned.)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * See dictAddRaw() for more information. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">dictEntry *dictAddOrFind(dict *d, void *key) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dictEntry *entry, *existing;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    entry = dictAddRaw(d,key,&amp;existing);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return entry ? entry : existing;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Search and remove an element. This is an helper function for
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * dictDelete() and dictUnlink(), please check the top comment
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * of those functions. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static dictEntry *dictGenericDelete(dict *d, const void *key, int nofree) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned int h, idx;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dictEntry *he, *prevHe;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    int table;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (d-&gt;ht[0].used == 0 &amp;&amp; d-&gt;ht[1].used == 0) return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">	//进行一次rehash操作
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (dictIsRehashing(d)) _dictRehashStep(d);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    h = dictHashKey(d, key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (table = 0; table &lt;= 1; table++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        idx = h &amp; d-&gt;ht[table].sizemask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        he = d-&gt;ht[table].table[idx];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        prevHe = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(he) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (key==he-&gt;key || dictCompareKeys(d, key, he-&gt;key)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                /* Unlink the element from the list */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                if (prevHe)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    prevHe-&gt;next = he-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                else
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    d-&gt;ht[table].table[idx] = he-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                if (!nofree) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    dictFreeKey(d, he);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    dictFreeVal(d, he);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    zfree(he);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                d-&gt;ht[table].used--;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                return he;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            prevHe = he;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            he = he-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">		//如果正在进行rehash，则对ht[1]也进行删除操作
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (!dictIsRehashing(d)) break;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return NULL; /* not found */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Remove an element, returning DICT_OK on success or DICT_ERR if the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * element was not found. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int dictDelete(dict *ht, const void *key) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return dictGenericDelete(ht,key,0) ? DICT_OK : DICT_ERR;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Remove an element from the table, but without actually releasing
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * the key, value and dictionary entry. The dictionary entry is returned
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * if the element was found (and unlinked from the table), and the user
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * should later call `dictFreeUnlinkedEntry()` with it in order to release it.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * Otherwise if the key is not found, NULL is returned.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * This function is useful when we want to remove something from the hash
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * table but want to use its value before actually deleting the entry.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * Without this function the pattern would require two lookups:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *  entry = dictFind(...);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *  // Do something with entry
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *  dictDelete(dictionary,entry);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * Thanks to this function it is possible to avoid this, and use
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * instead:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * entry = dictUnlink(dictionary,entry);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * // Do something with entry
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * dictFreeUnlinkedEntry(entry); // &lt;- This does not need to lookup again.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">dictEntry *dictUnlink(dict *ht, const void *key) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return dictGenericDelete(ht,key,1);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* You need to call this function to really free the entry after a call
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * to dictUnlink(). It&#39;</span>s safe to call this <span style="color:#66d9ef">function</span> with <span style="color:#e6db74">&#39;he&#39;</span> <span style="color:#f92672">=</span> NULL. */
+</span></span><span style="display:flex;"><span>void dictFreeUnlinkedEntry<span style="color:#f92672">(</span>dict *d, dictEntry *he<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>he <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    dictFreeKey<span style="color:#f92672">(</span>d, he<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    dictFreeVal<span style="color:#f92672">(</span>d, he<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>he<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Destroy an entire dictionary */
+</span></span><span style="display:flex;"><span>int _dictClear<span style="color:#f92672">(</span>dict *d, dictht *ht, void<span style="color:#f92672">(</span>callback<span style="color:#f92672">)(</span>void *<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    unsigned long i;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Free all the elements */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">=</span> 0; i &lt; ht-&gt;size <span style="color:#f92672">&amp;&amp;</span> ht-&gt;used &gt; 0; i++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        dictEntry *he, *nextHe;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		//i&amp;65535即：i&amp;0xFFFF
+</span></span><span style="display:flex;"><span>		//callback<span style="color:#f92672">&amp;&amp;</span>i<span style="color:#f92672">==</span><span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>callback <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">(</span>i &amp; 65535<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> callback<span style="color:#f92672">(</span>d-&gt;privdata<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>he <span style="color:#f92672">=</span> ht-&gt;table<span style="color:#f92672">[</span>i<span style="color:#f92672">])</span> <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#66d9ef">continue</span>;
+</span></span><span style="display:flex;"><span>		//对链表进行free
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>he<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            nextHe <span style="color:#f92672">=</span> he-&gt;next;
+</span></span><span style="display:flex;"><span>            dictFreeKey<span style="color:#f92672">(</span>d, he<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            dictFreeVal<span style="color:#f92672">(</span>d, he<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            zfree<span style="color:#f92672">(</span>he<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            ht-&gt;used--;
+</span></span><span style="display:flex;"><span>            he <span style="color:#f92672">=</span> nextHe;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    /* Free the table and the allocated cache structure */
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>ht-&gt;table<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    /* Re-initialize the table */
+</span></span><span style="display:flex;"><span>    _dictReset<span style="color:#f92672">(</span>ht<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> DICT_OK; /* never fails */
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Clear &amp; Release the hash table */
+</span></span><span style="display:flex;"><span>void dictRelease<span style="color:#f92672">(</span>dict *d<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    _dictClear<span style="color:#f92672">(</span>d,&amp;d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    _dictClear<span style="color:#f92672">(</span>d,&amp;d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>,NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>dictEntry *dictFind<span style="color:#f92672">(</span>dict *d, const void *key<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictEntry *he;
+</span></span><span style="display:flex;"><span>    unsigned int h, idx, table;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.used + d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>.used <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> NULL; /* dict is empty */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">))</span> _dictRehashStep<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    h <span style="color:#f92672">=</span> dictHashKey<span style="color:#f92672">(</span>d, key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>table <span style="color:#f92672">=</span> 0; table &lt;<span style="color:#f92672">=</span> 1; table++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        idx <span style="color:#f92672">=</span> h &amp; d-&gt;ht<span style="color:#f92672">[</span>table<span style="color:#f92672">]</span>.sizemask;
+</span></span><span style="display:flex;"><span>        he <span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>table<span style="color:#f92672">]</span>.table<span style="color:#f92672">[</span>idx<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>he<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>key<span style="color:#f92672">==</span>he-&gt;key <span style="color:#f92672">||</span> dictCompareKeys<span style="color:#f92672">(</span>d, key, he-&gt;key<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> he;
+</span></span><span style="display:flex;"><span>            he <span style="color:#f92672">=</span> he-&gt;next;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>		//如果正在进行rehash，则对ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>和ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>都进行查找
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">))</span> <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>void *dictFetchValue<span style="color:#f92672">(</span>dict *d, const void *key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictEntry *he;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    he <span style="color:#f92672">=</span> dictFind<span style="color:#f92672">(</span>d,key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> he ? dictGetVal<span style="color:#f92672">(</span>he<span style="color:#f92672">)</span> : NULL;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* A fingerprint is a <span style="color:#ae81ff">64</span> bit number that represents the state of the dictionary
+</span></span><span style="display:flex;"><span> * at a given time, it<span style="color:#e6db74">&#39;s just a few dict properties xored together.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * When an unsafe iterator is initialized, we get the dict fingerprint, and check
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * the fingerprint again when the iterator is released.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * If the two fingerprints are different it means that the user of the iterator
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * performed forbidden operations against the dictionary while iterating. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">long long dictFingerprint(dict *d) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    long long integers[6], hash = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    int j;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    integers[0] = (long) d-&gt;ht[0].table;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    integers[1] = d-&gt;ht[0].size;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    integers[2] = d-&gt;ht[0].used;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    integers[3] = (long) d-&gt;ht[1].table;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    integers[4] = d-&gt;ht[1].size;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    integers[5] = d-&gt;ht[1].used;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* We hash N integers by summing every successive integer with the integer
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * hashing of the previous sum. Basically:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * Result = hash(hash(hash(int1)+int2)+int3) ...
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * This way the same set of integers in a different order will (likely) hash
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * to a different number. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (j = 0; j &lt; 6; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        hash += integers[j];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* For the hashing step we use Tomas Wang&#39;</span>s <span style="color:#ae81ff">64</span> bit integer hash. */
+</span></span><span style="display:flex;"><span>        hash <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>~hash<span style="color:#f92672">)</span> + <span style="color:#f92672">(</span>hash <span style="color:#e6db74">&lt;&lt; 21); // hash = (hash &lt;&lt; 21</span><span style="color:#f92672">)</span> - hash - 1;
+</span></span><span style="display:flex;"><span>        hash <span style="color:#f92672">=</span> hash ^ <span style="color:#f92672">(</span>hash &gt;&gt; 24<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        hash <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>hash + <span style="color:#f92672">(</span>hash <span style="color:#e6db74">&lt;&lt; 3)) + (hash &lt;&lt; 8); // hash * 265
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        hash = hash ^ (hash &gt;&gt; 14);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        hash = (hash + (hash &lt;&lt; 2)) + (hash &lt;&lt; 4); // hash * 21
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        hash = hash ^ (hash &gt;&gt; 28);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        hash = hash + (hash &lt;&lt; 3</span>1<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> hash;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>//获取一个nonsafe迭代器
+</span></span><span style="display:flex;"><span>dictIterator *dictGetIterator<span style="color:#f92672">(</span>dict *d<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictIterator *iter <span style="color:#f92672">=</span> zmalloc<span style="color:#f92672">(</span>sizeof<span style="color:#f92672">(</span>*iter<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    iter-&gt;d <span style="color:#f92672">=</span> d;
+</span></span><span style="display:flex;"><span>    //ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>    iter-&gt;table <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    iter-&gt;index <span style="color:#f92672">=</span> -1;
+</span></span><span style="display:flex;"><span>    //nonsafe
+</span></span><span style="display:flex;"><span>    iter-&gt;safe <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    iter-&gt;entry <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    iter-&gt;nextEntry <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> iter;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* If safe is set to <span style="color:#ae81ff">1</span> this is a safe iterator, that means, you can call                                                                                               | <span style="color:#ae81ff">24</span>    +hashFunction
+</span></span><span style="display:flex;"><span>  * dictAdd, dictFind, and other functions against the dictionary even <span style="color:#66d9ef">while</span>                                                                                            | <span style="color:#ae81ff">25</span>    +keyDup
+</span></span><span style="display:flex;"><span>  * iterating. Otherwise it is a non safe iterator, and only dictNext<span style="color:#f92672">()</span>                                                                                                 | <span style="color:#ae81ff">26</span>    +valDup
+</span></span><span style="display:flex;"><span>  * should be called <span style="color:#66d9ef">while</span> iterating. */
+</span></span><span style="display:flex;"><span>dictIterator *dictGetSafeIterator<span style="color:#f92672">(</span>dict *d<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictIterator *i <span style="color:#f92672">=</span> dictGetIterator<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    i-&gt;safe <span style="color:#f92672">=</span> 1;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>dictEntry *dictNext<span style="color:#f92672">(</span>dictIterator *iter<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>1<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>	//entry<span style="color:#f92672">==</span>NULL对应两种情况：
+</span></span><span style="display:flex;"><span>	//1.迭代器创建了，entry没有初始化为ht中的节点
+</span></span><span style="display:flex;"><span>	//2.迭代器到了某个ht元素所指向链表的末尾
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>iter-&gt;entry <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            dictht *ht <span style="color:#f92672">=</span> &amp;iter-&gt;d-&gt;ht<span style="color:#f92672">[</span>iter-&gt;table<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>	    //迭代器初始化，即指向hash table中第一个元素的第一个节点
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>iter-&gt;index <span style="color:#f92672">==</span> -1 <span style="color:#f92672">&amp;&amp;</span> iter-&gt;table <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		//安全迭代器
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>iter-&gt;safe<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                    iter-&gt;d-&gt;iterators++;
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>                    iter-&gt;fingerprint <span style="color:#f92672">=</span> dictFingerprint<span style="color:#f92672">(</span>iter-&gt;d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            iter-&gt;index++;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>iter-&gt;index &gt;<span style="color:#f92672">=</span> <span style="color:#f92672">(</span>long<span style="color:#f92672">)</span> ht-&gt;size<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		//如果正在进行rehash,并且当前索引第一个ht的节点，接下来索引第二个ht
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictIsRehashing<span style="color:#f92672">(</span>iter-&gt;d<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> iter-&gt;table <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    iter-&gt;table++;
+</span></span><span style="display:flex;"><span>                    iter-&gt;index <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>                    ht <span style="color:#f92672">=</span> &amp;iter-&gt;d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    break;
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            iter-&gt;entry <span style="color:#f92672">=</span> ht-&gt;table<span style="color:#f92672">[</span>iter-&gt;index<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            iter-&gt;entry <span style="color:#f92672">=</span> iter-&gt;nextEntry;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>iter-&gt;entry<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            /* We need to save the <span style="color:#e6db74">&#39;next&#39;</span> here, the iterator user
+</span></span><span style="display:flex;"><span>             * may delete the entry we are returning. */
+</span></span><span style="display:flex;"><span>            iter-&gt;nextEntry <span style="color:#f92672">=</span> iter-&gt;entry-&gt;next;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> iter-&gt;entry;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>void dictReleaseIterator<span style="color:#f92672">(</span>dictIterator *iter<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>!<span style="color:#f92672">(</span>iter-&gt;index <span style="color:#f92672">==</span> -1 <span style="color:#f92672">&amp;&amp;</span> iter-&gt;table <span style="color:#f92672">==</span> 0<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>iter-&gt;safe<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            iter-&gt;d-&gt;iterators--;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>            assert<span style="color:#f92672">(</span>iter-&gt;fingerprint <span style="color:#f92672">==</span> dictFingerprint<span style="color:#f92672">(</span>iter-&gt;d<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    zfree<span style="color:#f92672">(</span>iter<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Return a random entry from the hash table. Useful to
+</span></span><span style="display:flex;"><span> * implement randomized algorithms */
+</span></span><span style="display:flex;"><span>dictEntry *dictGetRandomKey<span style="color:#f92672">(</span>dict *d<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    dictEntry *he, *orighe;
+</span></span><span style="display:flex;"><span>    unsigned int h;
+</span></span><span style="display:flex;"><span>    int listlen, listele;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictSize<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">))</span> _dictRehashStep<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">do</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            /* We are sure there are no elements in indexes from <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>             * to rehashidx-1 */
+</span></span><span style="display:flex;"><span>            h <span style="color:#f92672">=</span> d-&gt;rehashidx + <span style="color:#f92672">(</span>random<span style="color:#f92672">()</span> % <span style="color:#f92672">(</span>d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.size +
+</span></span><span style="display:flex;"><span>                                            d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>.size -
+</span></span><span style="display:flex;"><span>                                            d-&gt;rehashidx<span style="color:#f92672">))</span>;
+</span></span><span style="display:flex;"><span>            he <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>h &gt;<span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.size<span style="color:#f92672">)</span> ? d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>.table<span style="color:#f92672">[</span>h - d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.size<span style="color:#f92672">]</span> :
+</span></span><span style="display:flex;"><span>                                      d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.table<span style="color:#f92672">[</span>h<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>he <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">do</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            h <span style="color:#f92672">=</span> random<span style="color:#f92672">()</span> &amp; d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.sizemask;
+</span></span><span style="display:flex;"><span>            he <span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.table<span style="color:#f92672">[</span>h<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>he <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Now we found a non empty bucket, but it is a linked
+</span></span><span style="display:flex;"><span>     * list and we need to get a random element from the list.
+</span></span><span style="display:flex;"><span>     * The only sane way to <span style="color:#66d9ef">do</span> so is counting the elements and
+</span></span><span style="display:flex;"><span>     * <span style="color:#66d9ef">select</span> a random index. */
+</span></span><span style="display:flex;"><span>    listlen <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>    orighe <span style="color:#f92672">=</span> he;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>he<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        he <span style="color:#f92672">=</span> he-&gt;next;
+</span></span><span style="display:flex;"><span>        listlen++;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    //在链表中获取一个随机的节点
+</span></span><span style="display:flex;"><span>    listele <span style="color:#f92672">=</span> random<span style="color:#f92672">()</span> % listlen;
+</span></span><span style="display:flex;"><span>    he <span style="color:#f92672">=</span> orighe;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>listele--<span style="color:#f92672">)</span> he <span style="color:#f92672">=</span> he-&gt;next;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> he;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* This <span style="color:#66d9ef">function</span> samples the dictionary to <span style="color:#66d9ef">return</span> a few keys from random
+</span></span><span style="display:flex;"><span> * locations.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * It does not guarantee to <span style="color:#66d9ef">return</span> all the keys specified in <span style="color:#e6db74">&#39;count&#39;</span>, nor
+</span></span><span style="display:flex;"><span> * it does guarantee to <span style="color:#66d9ef">return</span> non-duplicated elements, however it will make
+</span></span><span style="display:flex;"><span> * some effort to <span style="color:#66d9ef">do</span> both things.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Returned pointers to hash table entries are stored into <span style="color:#e6db74">&#39;des&#39;</span> that
+</span></span><span style="display:flex;"><span> * points to an array of dictEntry pointers. The array must have room <span style="color:#66d9ef">for</span>
+</span></span><span style="display:flex;"><span> * at least <span style="color:#e6db74">&#39;count&#39;</span> elements, that is the argument we pass to the <span style="color:#66d9ef">function</span>
+</span></span><span style="display:flex;"><span> * to tell how many random elements we need.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * The <span style="color:#66d9ef">function</span> returns the number of items stored into <span style="color:#e6db74">&#39;des&#39;</span>, that may
+</span></span><span style="display:flex;"><span> * be less than <span style="color:#e6db74">&#39;count&#39;</span> <span style="color:#66d9ef">if</span> the hash table has less than <span style="color:#e6db74">&#39;count&#39;</span> elements
+</span></span><span style="display:flex;"><span> * inside, or <span style="color:#66d9ef">if</span> not enough elements were found in a reasonable amount of
+</span></span><span style="display:flex;"><span> * steps.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Note that this <span style="color:#66d9ef">function</span> is not suitable when you need a good distribution
+</span></span><span style="display:flex;"><span> * of the returned items, but only when you need to <span style="color:#e6db74">&#34;sample&#34;</span> a given number
+</span></span><span style="display:flex;"><span> * of continuous elements to run some kind of algorithm or to produce
+</span></span><span style="display:flex;"><span> * statistics. However the <span style="color:#66d9ef">function</span> is much faster than dictGetRandomKey<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span> * at producing N elements. */
+</span></span><span style="display:flex;"><span>unsigned int dictGetSomeKeys<span style="color:#f92672">(</span>dict *d, dictEntry **des, unsigned int count<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    unsigned long j; /* internal hash table id, <span style="color:#ae81ff">0</span> or 1. */
+</span></span><span style="display:flex;"><span>    unsigned long tables; /* <span style="color:#ae81ff">1</span> or <span style="color:#ae81ff">2</span> tables? */
+</span></span><span style="display:flex;"><span>    unsigned long stored <span style="color:#f92672">=</span> 0, maxsizemask;
+</span></span><span style="display:flex;"><span>    unsigned long maxsteps;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictSize<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span> &lt; count<span style="color:#f92672">)</span> count <span style="color:#f92672">=</span> dictSize<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    maxsteps <span style="color:#f92672">=</span> count*10;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Try to <span style="color:#66d9ef">do</span> a rehashing work proportional to <span style="color:#e6db74">&#39;count&#39;</span>. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 0; j &lt; count; j++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>            _dictRehashStep<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>            break;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    tables <span style="color:#f92672">=</span> dictIsRehashing<span style="color:#f92672">(</span>d<span style="color:#f92672">)</span> ? <span style="color:#ae81ff">2</span> : 1;
+</span></span><span style="display:flex;"><span>    maxsizemask <span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span>.sizemask;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>tables &gt; <span style="color:#ae81ff">1</span> <span style="color:#f92672">&amp;&amp;</span> maxsizemask &lt; d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>.sizemask<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        maxsizemask <span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>.sizemask;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    /* Pick a random point inside the larger table. */
+</span></span><span style="display:flex;"><span>    unsigned long i <span style="color:#f92672">=</span> random<span style="color:#f92672">()</span> &amp; maxsizemask;
+</span></span><span style="display:flex;"><span>    unsigned long emptylen <span style="color:#f92672">=</span> 0; /* Continuous empty entries so far. */
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span><span style="color:#f92672">(</span>stored &lt; count <span style="color:#f92672">&amp;&amp;</span> maxsteps--<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 0; j &lt; tables; j++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            /* Invariant of the dict.c rehashing: up to the indexes already
+</span></span><span style="display:flex;"><span>             * visited in ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> during the rehashing, there are no populated
+</span></span><span style="display:flex;"><span>             * buckets, so we can skip ht<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> <span style="color:#66d9ef">for</span> indexes between <span style="color:#ae81ff">0</span> and idx-1. */
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>tables <span style="color:#f92672">==</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">&amp;&amp;</span> j <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> i &lt; <span style="color:#f92672">(</span>unsigned long<span style="color:#f92672">)</span> d-&gt;rehashidx<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                /* Moreover, <span style="color:#66d9ef">if</span> we are currently out of range in the second
+</span></span><span style="display:flex;"><span>                 * table, there will be no elements in both tables up to
+</span></span><span style="display:flex;"><span>                 * the current rehashing index, so we jump <span style="color:#66d9ef">if</span> possible.
+</span></span><span style="display:flex;"><span>                 * <span style="color:#f92672">(</span>this happens when going from big to small table<span style="color:#f92672">)</span>. */
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>i &gt;<span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span>.size<span style="color:#f92672">)</span> i <span style="color:#f92672">=</span> d-&gt;rehashidx;
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">continue</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>i &gt;<span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>.size<span style="color:#f92672">)</span> <span style="color:#66d9ef">continue</span>; /* Out of range <span style="color:#66d9ef">for</span> this table. */
+</span></span><span style="display:flex;"><span>            dictEntry *he <span style="color:#f92672">=</span> d-&gt;ht<span style="color:#f92672">[</span>j<span style="color:#f92672">]</span>.table<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            /* Count contiguous empty buckets, and jump to other
+</span></span><span style="display:flex;"><span>             * locations <span style="color:#66d9ef">if</span> they reach <span style="color:#e6db74">&#39;count&#39;</span> <span style="color:#f92672">(</span>with a minimum of 5<span style="color:#f92672">)</span>. */
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>he <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                emptylen++;
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>emptylen &gt;<span style="color:#f92672">=</span> <span style="color:#ae81ff">5</span> <span style="color:#f92672">&amp;&amp;</span> emptylen &gt; count<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    i <span style="color:#f92672">=</span> random<span style="color:#f92672">()</span> &amp; maxsizemask;
+</span></span><span style="display:flex;"><span>                    emptylen <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                emptylen <span style="color:#f92672">=</span> 0;
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>he<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    /* Collect all the elements of the buckets found non
+</span></span><span style="display:flex;"><span>                     * empty <span style="color:#66d9ef">while</span> iterating. */
+</span></span><span style="display:flex;"><span>                    *des <span style="color:#f92672">=</span> he;
+</span></span><span style="display:flex;"><span>                    des++;
+</span></span><span style="display:flex;"><span>                    he <span style="color:#f92672">=</span> he-&gt;next;
+</span></span><span style="display:flex;"><span>                    stored++;
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>stored <span style="color:#f92672">==</span> count<span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> stored;
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>i+1<span style="color:#f92672">)</span> &amp; maxsizemask;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> stored;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* Function to reverse bits. Algorithm from:
+</span></span><span style="display:flex;"><span> * http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel */
+</span></span><span style="display:flex;"><span>static unsigned long rev<span style="color:#f92672">(</span>unsigned long v<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    unsigned long s <span style="color:#f92672">=</span> <span style="color:#ae81ff">8</span> * sizeof<span style="color:#f92672">(</span>v<span style="color:#f92672">)</span>; // bit size; must be power of <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>    unsigned long mask <span style="color:#f92672">=</span> ~0;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#f92672">((</span>s &gt;&gt;<span style="color:#f92672">=</span> 1<span style="color:#f92672">)</span> &gt; 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        mask ^<span style="color:#f92672">=</span> <span style="color:#f92672">(</span>mask <span style="color:#e6db74">&lt;&lt; s);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        v = ((v &gt;&gt; s</span><span style="color:#f92672">)</span> &amp; mask<span style="color:#f92672">)</span> | <span style="color:#f92672">((</span>v <span style="color:#e6db74">&lt;&lt; s) &amp; ~mas</span>k<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> v;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>/* dictScan<span style="color:#f92672">()</span> is used to iterate over the elements of a dictionary.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Iterating works the following way:
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * 1<span style="color:#f92672">)</span> Initially you call the <span style="color:#66d9ef">function</span> using a cursor <span style="color:#f92672">(</span>v<span style="color:#f92672">)</span> value of 0.
+</span></span><span style="display:flex;"><span> * 2<span style="color:#f92672">)</span> The <span style="color:#66d9ef">function</span> performs one step of the iteration, and returns the
+</span></span><span style="display:flex;"><span> *    new cursor value you must use in the next call.
+</span></span><span style="display:flex;"><span> * 3<span style="color:#f92672">)</span> When the returned cursor is 0, the iteration is complete.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * The <span style="color:#66d9ef">function</span> guarantees all elements present in the
+</span></span><span style="display:flex;"><span> * dictionary get returned between the start and end of the iteration.
+</span></span><span style="display:flex;"><span> * However it is possible some elements get returned multiple times.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * For every element returned, the callback argument <span style="color:#e6db74">&#39;fn&#39;</span> is
+</span></span><span style="display:flex;"><span> * called with <span style="color:#e6db74">&#39;privdata&#39;</span> as first argument and the dictionary entry
+</span></span><span style="display:flex;"><span> * <span style="color:#e6db74">&#39;de&#39;</span> as second argument.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * HOW IT WORKS.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * The iteration algorithm was designed by Pieter Noordhuis.
+</span></span><span style="display:flex;"><span> * The main idea is to increment a cursor starting from the higher order
+</span></span><span style="display:flex;"><span> * bits. That is, instead of incrementing the cursor normally, the bits
+</span></span><span style="display:flex;"><span> * of the cursor are reversed, <span style="color:#66d9ef">then</span> the cursor is incremented, and finally
+</span></span><span style="display:flex;"><span> * the bits are reversed again.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * This strategy is needed because the hash table may be resized between
+</span></span><span style="display:flex;"><span> * iteration calls.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * dict.c hash tables are always power of two in size, and they
+</span></span><span style="display:flex;"><span> * use chaining, so the position of an element in a given table is given
+</span></span><span style="display:flex;"><span> * by computing the bitwise AND between Hash<span style="color:#f92672">(</span>key<span style="color:#f92672">)</span> and SIZE-1
+</span></span><span style="display:flex;"><span> * <span style="color:#f92672">(</span>where SIZE-1 is always the mask that is equivalent to taking the rest
+</span></span><span style="display:flex;"><span> *  of the division between the Hash of the key and SIZE<span style="color:#f92672">)</span>.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * For example <span style="color:#66d9ef">if</span> the current hash table size is 16, the mask is
+</span></span><span style="display:flex;"><span> * <span style="color:#f92672">(</span>in binary<span style="color:#f92672">)</span> 1111. The position of a key in the hash table will always be
+</span></span><span style="display:flex;"><span> * the last four bits of the hash output, and so forth.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * WHAT HAPPENS IF THE TABLE CHANGES IN SIZE?
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * If the hash table grows, elements can go anywhere in one multiple of
+</span></span><span style="display:flex;"><span> * the old bucket: <span style="color:#66d9ef">for</span> example let<span style="color:#e6db74">&#39;s say we already iterated with
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * a 4 bit cursor 1100 (the mask is 1111 because hash table size = 16).
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * If the hash table will be resized to 64 elements, then the new mask will
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * be 111111. The new buckets you obtain by substituting in ??1100
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * with either 0 or 1 can be targeted only by keys we already visited
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * when scanning the bucket 1100 in the smaller hash table.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * By iterating the higher bits first, because of the inverted counter, the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * cursor does not need to restart if the table size gets bigger. It will
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * continue iterating using cursors without &#39;</span>1100<span style="color:#e6db74">&#39; at the end, and also
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * without any other combination of the final 4 bits already explored.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * Similarly when the table size shrinks over time, for example going from
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * 16 to 8, if a combination of the lower three bits (the mask for size 8
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * is 111) were already completely explored, it would not be visited again
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * because we are sure we tried, for example, both 0111 and 1111 (all the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * variations of the higher bit) so we don&#39;</span>t need to test it again.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * WAIT... YOU HAVE *TWO* TABLES DURING REHASHING!
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * Yes, this is true, but we always iterate the smaller table first, <span style="color:#66d9ef">then</span>
+</span></span><span style="display:flex;"><span> * we test all the expansions of the current cursor into the larger
+</span></span><span style="display:flex;"><span> * table. For example <span style="color:#66d9ef">if</span> the current cursor is <span style="color:#ae81ff">101</span> and we also have a
+</span></span><span style="display:flex;"><span> * larger table of size 16, we also test <span style="color:#f92672">(</span>0<span style="color:#f92672">)</span><span style="color:#ae81ff">101</span> and <span style="color:#f92672">(</span>1<span style="color:#f92672">)</span><span style="color:#ae81ff">101</span> inside the larger
+</span></span><span style="display:flex;"><span> * table. This reduces the problem back to having only one table, where
+</span></span><span style="display:flex;"><span> * the larger one, <span style="color:#66d9ef">if</span> it exists, is just an expansion of the smaller one.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * LIMITATIONS
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * This iterator is completely stateless, and this is a huge advantage,
+</span></span><span style="display:flex;"><span> * including no additional memory used.
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * The disadvantages resulting from this design are:
+</span></span><span style="display:flex;"><span> *
+</span></span><span style="display:flex;"><span> * 1<span style="color:#f92672">)</span> It is possible we <span style="color:#66d9ef">return</span> elements more than once. However this is usually
+</span></span><span style="display:flex;"><span> *    easy to deal with in the application level.
+</span></span><span style="display:flex;"><span> * 2<span style="color:#f92672">)</span> The iterator must <span style="color:#66d9ef">return</span> multiple elements per call, as it needs to always
+</span></span><span style="display:flex;"><span> *    <span style="color:#66d9ef">return</span> all the keys chained in a given bucket, and all the expansions, so
+</span></span><span style="display:flex;"><span> *    we are sure we don<span style="color:#e6db74">&#39;t miss keys moving during rehashing.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * 3) The reverse cursor is somewhat hard to understand at first, but this
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *    comment is supposed to help.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">unsigned long dictScan(dict *d,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                       unsigned long v,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                       dictScanFunction *fn,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                       dictScanBucketFunction* bucketfn,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                       void *privdata)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dictht *t0, *t1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    const dictEntry *de, *next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned long m0, m1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (dictSize(d) == 0) return 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (!dictIsRehashing(d)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        t0 = &amp;(d-&gt;ht[0]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        m0 = t0-&gt;sizemask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Emit entries at cursor */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (bucketfn) bucketfn(privdata, &amp;t0-&gt;table[v &amp; m0]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        de = t0-&gt;table[v &amp; m0];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while (de) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            next = de-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            fn(privdata, de);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            de = next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        t0 = &amp;d-&gt;ht[0];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        t1 = &amp;d-&gt;ht[1];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Make sure t0 is the smaller and t1 is the bigger table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (t0-&gt;size &gt; t1-&gt;size) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            t0 = &amp;d-&gt;ht[1];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            t1 = &amp;d-&gt;ht[0];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        m0 = t0-&gt;sizemask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        m1 = t1-&gt;sizemask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Emit entries at cursor */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (bucketfn) bucketfn(privdata, &amp;t0-&gt;table[v &amp; m0]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        de = t0-&gt;table[v &amp; m0];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while (de) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            next = de-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            fn(privdata, de);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            de = next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Iterate over indices in larger table that are the expansion
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         * of the index pointed to by the cursor in the smaller table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        do {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            /* Emit entries at cursor */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (bucketfn) bucketfn(privdata, &amp;t1-&gt;table[v &amp; m1]);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            de = t1-&gt;table[v &amp; m1];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            while (de) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                next = de-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                fn(privdata, de);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                de = next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            /* Increment bits not covered by the smaller mask */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            v = (((v | m0) + 1) &amp; ~m0) | (v &amp; m0);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            /* Continue while bits covered by mask difference is non-zero */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        } while (v &amp; (m0 ^ m1));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Set unmasked bits so incrementing the reversed cursor
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * operates on the masked bits of the smaller table */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    v |= ~m0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Increment the reverse cursor */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    v = rev(v);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    v++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    v = rev(v);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return v;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* ------------------------- private functions ------------------------------ */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Expand the hash table if needed */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static int _dictExpandIfNeeded(dict *d)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Incremental rehashing already in progress. Return. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (dictIsRehashing(d)) return DICT_OK;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* If the hash table is empty expand it to the initial size. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (d-&gt;ht[0].size == 0) return dictExpand(d, DICT_HT_INITIAL_SIZE);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* If we reached the 1:1 ratio, and we are allowed to resize the hash
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * table (global setting) or we should avoid it but the ratio between
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * elements/buckets is over the &#34;safe&#34; threshold, we resize doubling
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">     * the number of buckets. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (d-&gt;ht[0].used &gt;= d-&gt;ht[0].size &amp;&amp;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        (dict_can_resize ||
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">         d-&gt;ht[0].used/d-&gt;ht[0].size &gt; dict_force_resize_ratio))
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return dictExpand(d, d-&gt;ht[0].used*2);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return DICT_OK;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Our hash table capability is a power of two */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static unsigned long _dictNextPower(unsigned long size)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned long i = DICT_HT_INITIAL_SIZE;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (size &gt;= LONG_MAX) return LONG_MAX + 1LU;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    while(1) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (i &gt;= size)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            return i;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        i *= 2;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Returns the index of a free slot that can be populated with
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * a hash entry for the given &#39;</span>key<span style="color:#e6db74">&#39;.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * If the key already exists, -1 is returned
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * and the optional output parameter may be filled.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * Note that if we are in the process of rehashing the hash table, the
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * index is always returned in the context of the second (new) hash table. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">static int _dictKeyIndex(dict *d, const void *key, unsigned int hash, dictEntry **existing)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned int idx, table;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dictEntry *he;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (existing) *existing = NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Expand the hash table if needed */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (_dictExpandIfNeeded(d) == DICT_ERR)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return -1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (table = 0; table &lt;= 1; table++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        idx = hash &amp; d-&gt;ht[table].sizemask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* Search if this slot does not already contain the given key */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        he = d-&gt;ht[table].table[idx];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(he) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (key==he-&gt;key || dictCompareKeys(d, key, he-&gt;key)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                if (existing) *existing = he;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                return -1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            he = he-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (!dictIsRehashing(d)) break;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return idx;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void dictEmpty(dict *d, void(callback)(void*)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    _dictClear(d,&amp;d-&gt;ht[0],callback);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    _dictClear(d,&amp;d-&gt;ht[1],callback);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    d-&gt;rehashidx = -1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    d-&gt;iterators = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void dictEnableResize(void) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dict_can_resize = 1;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void dictDisableResize(void) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dict_can_resize = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">unsigned int dictGetHash(dict *d, const void *key) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return dictHashKey(d, key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* Finds the dictEntry reference by using pointer and pre-calculated hash.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * oldkey is a dead pointer and should not be accessed.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * the hash value should be provided using dictGetHash.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * no string / key comparison is performed.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"> * return value is the reference to the dictEntry if found, or NULL if not found. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">dictEntry **dictFindEntryRefByPtrAndHash(dict *d, const void *oldptr, unsigned int hash) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dictEntry *he, **heref;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned int idx, table;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (d-&gt;ht[0].used + d-&gt;ht[1].used == 0) return NULL; /* dict is empty */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (table = 0; table &lt;= 1; table++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        idx = hash &amp; d-&gt;ht[table].sizemask;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        heref = &amp;d-&gt;ht[table].table[idx];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        he = *heref;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(he) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            if (oldptr==he-&gt;key)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                return heref;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            heref = &amp;he-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            he = *heref;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (!dictIsRehashing(d)) return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return NULL;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* ------------------------------- Debugging ---------------------------------*/
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">#define DICT_STATS_VECTLEN 50
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">size_t _dictGetStatsHt(char *buf, size_t bufsize, dictht *ht, int tableid) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned long i, slots = 0, chainlen, maxchainlen = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned long totchainlen = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    unsigned long clvector[DICT_STATS_VECTLEN];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    size_t l = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (ht-&gt;used == 0) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        return snprintf(buf,bufsize,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &#34;No stats available for empty dictionaries\n&#34;);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Compute stats. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (i = 0; i &lt; DICT_STATS_VECTLEN; i++) clvector[i] = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (i = 0; i &lt; ht-&gt;size; i++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dictEntry *he;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (ht-&gt;table[i] == NULL) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            clvector[0]++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            continue;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        slots++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        /* For each hash entry on this slot... */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        chainlen = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        he = ht-&gt;table[i];
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        while(he) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            chainlen++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            he = he-&gt;next;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        clvector[(chainlen &lt; DICT_STATS_VECTLEN) ? chainlen : (DICT_STATS_VECTLEN-1)]++;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (chainlen &gt; maxchainlen) maxchainlen = chainlen;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        totchainlen += chainlen;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Generate human readable stats. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    l += snprintf(buf+l,bufsize-l,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34;Hash table %d stats (%s):\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34; table size: %ld\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34; number of elements: %ld\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34; different slots: %ld\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34; max chain length: %ld\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34; avg chain length (counted): %.02f\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34; avg chain length (computed): %.02f\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &#34; Chain length distribution:\n&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        tableid, (tableid == 0) ? &#34;main hash table&#34; : &#34;rehashing target&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        ht-&gt;size, ht-&gt;used, slots, maxchainlen,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        (float)totchainlen/slots, (float)ht-&gt;used/slots);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (i = 0; i &lt; DICT_STATS_VECTLEN-1; i++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (clvector[i] == 0) continue;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        if (l &gt;= bufsize) break;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        l += snprintf(buf+l,bufsize-l,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &#34;   %s%ld: %ld (%.02f%%)\n&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            (i == DICT_STATS_VECTLEN-1)?&#34;&gt;= &#34;:&#34;&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            i, clvector[i], ((float)clvector[i]/ht-&gt;size)*100);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Unlike snprintf(), teturn the number of characters actually written. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (bufsize) buf[bufsize-1] = &#39;</span><span style="color:#ae81ff">\0</span><span style="color:#e6db74">&#39;;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return strlen(buf);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void dictGetStats(char *buf, size_t bufsize, dict *d) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    size_t l;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    char *orig_buf = buf;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    size_t orig_bufsize = bufsize;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    l = _dictGetStatsHt(buf,bufsize,&amp;d-&gt;ht[0],0);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    buf += l;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    bufsize -= l;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (dictIsRehashing(d) &amp;&amp; bufsize &gt; 0) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        _dictGetStatsHt(buf,bufsize,&amp;d-&gt;ht[1],1);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Make sure there is a NULL term at the end. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (orig_bufsize) orig_buf[orig_bufsize-1] = &#39;</span><span style="color:#ae81ff">\0</span><span style="color:#e6db74">&#39;;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* ------------------------------- Benchmark ---------------------------------*/
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">#ifdef DICT_BENCHMARK_MAIN
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">#include &#34;sds.h&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">uint64_t hashCallback(const void *key) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int compareCallback(void *privdata, const void *key1, const void *key2) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    int l1,l2;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    DICT_NOTUSED(privdata);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    l1 = sdslen((sds)key1);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    l2 = sdslen((sds)key2);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (l1 != l2) return 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    return memcmp(key1, key2, l1) == 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">void freeCallback(void *privdata, void *val) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    DICT_NOTUSED(privdata);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    sdsfree(val);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">dictType BenchmarkDictType = {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    hashCallback,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    NULL,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    NULL,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    compareCallback,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    freeCallback,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    NULL
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">};
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">#define start_benchmark() start = timeInMilliseconds()
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">#define end_benchmark(msg) do { \
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    elapsed = timeInMilliseconds()-start; \
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    printf(msg &#34;: %ld items in %lld ms\n&#34;, count, elapsed); \
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">} while(0);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">/* dict-benchmark [count] */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">int main(int argc, char **argv) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    long j;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    long long start, elapsed;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    dict *dict = dictCreate(&amp;BenchmarkDictType,NULL);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    long count = 0;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    if (argc == 2) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        count = strtol(argv[1],NULL,10);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    } else {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        count = 5000000;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    start_benchmark();
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (j = 0; j &lt; count; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        int retval = dictAdd(dict,sdsfromlonglong(j),(void*)j);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        assert(retval == DICT_OK);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    end_benchmark(&#34;Inserting&#34;);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    assert((long)dictSize(dict) == count);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    /* Wait for rehashing. */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    while (dictIsRehashing(dict)) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dictRehashMilliseconds(dict,100);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    start_benchmark();
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (j = 0; j &lt; count; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        sds key = sdsfromlonglong(j);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dictEntry *de = dictFind(dict,key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        assert(de != NULL);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        sdsfree(key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    end_benchmark(&#34;Linear access of existing elements&#34;);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    start_benchmark();
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (j = 0; j &lt; count; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        sds key = sdsfromlonglong(j);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dictEntry *de = dictFind(dict,key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        assert(de != NULL);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        sdsfree(key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    end_benchmark(&#34;Linear access of existing elements (2nd round)&#34;);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    start_benchmark();
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (j = 0; j &lt; count; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        sds key = sdsfromlonglong(rand() % count);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        dictEntry *de = dictFind(dict,key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        assert(de != NULL);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        sdsfree(key);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    end_benchmark(&#34;Random access of existing elements&#34;);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    start_benchmark();
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    for (j = 0; j &lt; count; j++) {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        sds key = sdsfromlonglong(rand() % count);
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        key[0] = &#39;</span>X<span style="color:#960050;background-color:#1e0010">&#39;</span>;
+</span></span><span style="display:flex;"><span>        dictEntry *de <span style="color:#f92672">=</span> dictFind<span style="color:#f92672">(</span>dict,key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>de <span style="color:#f92672">==</span> NULL<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        sdsfree<span style="color:#f92672">(</span>key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    end_benchmark<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Accessing missing&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    start_benchmark<span style="color:#f92672">()</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>j <span style="color:#f92672">=</span> 0; j &lt; count; j++<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        sds key <span style="color:#f92672">=</span> sdsfromlonglong<span style="color:#f92672">(</span>j<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        int retval <span style="color:#f92672">=</span> dictDelete<span style="color:#f92672">(</span>dict,key<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>retval <span style="color:#f92672">==</span> DICT_OK<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        key<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> +<span style="color:#f92672">=</span> 17; /* Change first number to letter. */
+</span></span><span style="display:flex;"><span>        retval <span style="color:#f92672">=</span> dictAdd<span style="color:#f92672">(</span>dict,key,<span style="color:#f92672">(</span>void*<span style="color:#f92672">)</span>j<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>        assert<span style="color:#f92672">(</span>retval <span style="color:#f92672">==</span> DICT_OK<span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    end_benchmark<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Removing and adding&#34;</span><span style="color:#f92672">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#endif</span>
+</span></span></code></pre></div><h4 id="4参考文献">4.参考文献</h4>
+<p>《<a href="https://github.com/Qinch/redis_reading/tree/read/">redis_reading</a>》</p>
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/redis4-adlist/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/redis4-event/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>

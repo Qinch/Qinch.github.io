@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title> - Just For Fun</title>
+  <meta property="og:title" content=" - Just For Fun" />
+  <meta name="twitter:title" content=" - Just For Fun" />
+  <meta name="description" content="title: C&#43;&#43;对象模型-目录 category: Asm/Cpp date:
+tags: [Asm,C,Cpp] toc: false 1.目录 大端法/小端法 基础类型的内存表示, 24 bits解析为有符号整数 数组内存布局 函数调用过程 函数调用过程:Class Object作为函数参数 Class Objec Virtual Base Class 引用 ObjectSlice Default Constructor Non-Staitc成员函数 Operator Delete异常分析 switch/if-else实现机制 2.参考文献 《深度探索C&#43;&#43;对象模型》 《CSAPP中文第二版》 《程序员的自我修养》 《C&#43;&#43;反汇编与逆向分析技术揭秘》 《老码识途》">
+  <meta property="og:description" content="title: C&#43;&#43;对象模型-目录 category: Asm/Cpp date:
+tags: [Asm,C,Cpp] toc: false 1.目录 大端法/小端法 基础类型的内存表示, 24 bits解析为有符号整数 数组内存布局 函数调用过程 函数调用过程:Class Object作为函数参数 Class Objec Virtual Base Class 引用 ObjectSlice Default Constructor Non-Staitc成员函数 Operator Delete异常分析 switch/if-else实现机制 2.参考文献 《深度探索C&#43;&#43;对象模型》 《CSAPP中文第二版》 《程序员的自我修养》 《C&#43;&#43;反汇编与逆向分析技术揭秘》 《老码识途》">
+  <meta name="twitter:description" content="title: C&#43;&#43;对象模型-目录 category: Asm/Cpp date:
+tags: [Asm,C,Cpp] toc: false 1.目录 大端法/小端法 基础类型的内存表示, 24 bits解析为有符号整数 数组内存布局 函数调用过程 函数调用过程:Class Object作为函数参数 Class Objec Virtual Base Class 引用 ObjectSlice …">
+  <meta name="author" content=""/>
+  <meta property="og:site_name" content="Just For Fun" />
+  <meta property="og:url" content="http://localhost:1313/posts/cpp-model-list/" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="generator" content="Hugo 0.125.5">
+  <link rel="stylesheet" href="/css/style.css" media="all" />
+  <link rel="stylesheet" href="/css/style-dark.css" media="all and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="/css/syntax.css" media="all" />
+  <link rel="stylesheet" href="/css/custom.css" media="all" />
+
+  <script src="/js/script.js"></script>
+  <script src="/js/custom.js"></script>
+  <script defer src="/fontawesome/all.min.js"></script>
+</head>
+
+<body>
+
+<header class="site-header">
+  <nav class="site-navi">
+    <h1 class="site-title"><a href="/">Just For Fun</a></h1>
+    <ul class="site-navi-items">
+      <li class="site-navi-item-categories"><a href="/categories/" title="Categories">Categories</a></li>
+      <li class="site-navi-item-archives"><a href="/archives/" title="Archives">Archives</a></li>
+      <li class="site-navi-item-about"><a href="/about/" title="About">About</a></li>
+    </ul>
+  </nav>
+</header>
+<hr class="site-header-bottom">
+
+  <div class="main" role="main">
+    <article class="article">
+      
+      
+      <h1 class="article-title"></h1>
+      
+      <hr class="article-title-bottom">
+      <ul class="article-meta">
+        <li class="article-meta-date"><time>January 1, 0001</time></li>
+      </ul>
+      
+      <h2 id="toc-false">title: C++对象模型-目录
+category: Asm/Cpp
+date:<br>
+tags: [Asm,C,Cpp]
+toc: false</h2>
+<h4 id="1目录">1.目录</h4>
+<ol start="0">
+<li><a href="http://chinchao.xyz/2013/10/09/endian/">大端法/小端法</a></li>
+<li><a href="http://chinchao.xyz/2016/04/08/cpp-model-4/">基础类型的内存表示</a>, <a href="http://chinchao.xyz/2013/01/10/bits-int/">24 bits解析为有符号整数</a></li>
+<li><a href="http://chinchao.xyz/2016/04/07/cpp-model-2/">数组内存布局</a></li>
+<li><a href="http://chinchao.xyz/2016/04/05/cpp-model-0/">函数调用过程</a></li>
+<li><a href="http://chinchao.xyz/2014/05/10/cpp-model-obj/">函数调用过程:Class Object作为函数参数</a></li>
+<li><a href="http://chinchao.xyz/2016/04/09/cpp-model-5/">Class Objec</a></li>
+<li><a href="http://chinchao.xyz/2016/04/09/cpp-model-10/">Virtual Base Class</a></li>
+<li><a href="http://chinchao.xyz/2016/04/09/cpp-model-9/">引用</a></li>
+<li><a href="http://chinchao.xyz/2016/04/09/cpp-model-7/">ObjectSlice</a></li>
+<li><a href="http://chinchao.xyz/2016/04/09/cpp-model-8/">Default Constructor</a></li>
+<li><a href="http://chinchao.xyz/2016/04/09/cpp-model-6/">Non-Staitc成员函数</a></li>
+<li><a href="http://chinchao.xyz/2014/05/10/cpp-model-del/">Operator Delete异常分析</a></li>
+<li><a href="http://chinchao.xyz/2016/04/08/cpp-model-3/">switch/if-else实现机制</a></li>
+</ol>
+<h4 id="2参考文献">2.参考文献</h4>
+<p>《深度探索C++对象模型》
+《CSAPP中文第二版》
+《程序员的自我修养》
+《C++反汇编与逆向分析技术揭秘》
+《老码识途》</p>
+
+    </article>
+
+    
+<ul class="article-share">
+</ul>
+
+
+    <ul class="pager article-pager">
+      <li class="pager-newer">
+          <a href="/posts/cpp-model-del/" data-toggle="tooltip" data-placement="top" title="">&lt; Newer</a>
+      </li>
+      <li class="pager-older">
+        <a href="/posts/cpp-model-obj/" data-toggle="tooltip" data-placement="top" title="">Older &gt;</a>
+      </li>
+    </ul>
+  </div>
+
+
+<div class="site-footer">
+  <div class="copyright"></div>
+  <ul class="site-footer-items">
+    <li class="site-footer-item-"><a href="" title=""></a></li>
+  </ul>
+  <div class="powerdby">
+    <a href="https://github.com/qinch" rel="me" target="_blank"><i class="fa-brands fa-github" style="font-size: 16px;"></i></a>&nbsp&nbsp
+    <a href="mailto:qinchaowhut@qq.com" target="_blank"><i class="fa-solid fa-envelope" style="font-size: 16px;"></i></a></li><br>
+    ©2015-2024 qinchao | Powered by <a href="https://gohugo.io/">Hugo</a> and <a href="https://github.com/taikii/whiteplain">Whiteplain</a>
+  </div>
+</div>
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=Toracking%20ID"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'Toracking ID');
+        }
+      </script>
+    
+  
+
+
+
+</body>
+</html>
