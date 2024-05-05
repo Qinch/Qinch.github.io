@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Linux Kernel on Just For Fun</title>
-    <link>https://qinch.github.io/categories/linux-kernel/</link>
+    <link>http://localhost:1313/categories/linux-kernel/</link>
     <description>Recent content in Linux Kernel on Just For Fun</description>
     <generator>Hugo</generator>
     <language>en</language>
     <lastBuildDate>Sun, 05 May 2024 00:00:00 +0000</lastBuildDate>
-    <atom:link href="https://qinch.github.io/categories/linux-kernel/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="http://localhost:1313/categories/linux-kernel/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>跟着xv6学习OS Kernel</title>
-      <link>https://qinch.github.io/posts/xv6/</link>
+      <link>http://localhost:1313/posts/xv6/</link>
       <pubDate>Sun, 05 May 2024 00:00:00 +0000</pubDate>
-      <guid>https://qinch.github.io/posts/xv6/</guid>
+      <guid>http://localhost:1313/posts/xv6/</guid>
       <description>&lt;h3 id=&#34;1-xv6-book&#34;&gt;1. xv6 book&lt;/h3&gt;</description>
     </item>
   </channel>
